@@ -50,7 +50,8 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 # Ensure the database file is copied to the build directory
 DISTFILES += \
-    README.md
+    README.md \
+    src/style.css
 
 # Create a directory for the database if it doesn't exist
 QMAKE_POST_LINK += $$QMAKE_MKDIR $$shell_path($$OUT_PWD/data/)
@@ -68,3 +69,6 @@ RCC_DIR = $$OUT_PWD/rcc
 
 # Force update of UI files
 system(touch $$PWD/src/*.ui)
+
+RESOURCES += \
+    src/resource.qrc
