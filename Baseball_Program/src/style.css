@@ -1,0 +1,101 @@
+/* Main window background and font settings */
+QMainWindow {
+    background-color: #2e2e2e;
+    color: #f0f0f0;
+    font-family: 'Segoe UI', sans-serif;
+    font-size: 15px;
+}
+
+/* Side panel layout (combo box and buttons area) */
+QWidget#centralwidget > QHBoxLayout > QVBoxLayout {
+    background-color: #3a3a3a;
+    padding: 16px;
+    border-radius: 10px;
+}
+
+/* Buttons */
+QPushButton {
+    background-color: #4a4a4a;
+    color: #f0f0f0;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin: 6px 0;
+    font-size: 15px; /* Same size as the table text */
+}
+QPushButton:hover {
+    background-color: #5a5a5a;
+}
+QPushButton:pressed {
+    background-color: #6a6a6a;
+}
+
+/* ComboBox styling */
+QComboBox {
+    background-color: #4a4a4a;
+    color: #f0f0f0;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 15px;
+}
+QComboBox::drop-down {
+    border: none;
+}
+
+/* Table widget styling */
+QTableWidget {
+    background-color: #393939;
+    color: #f2f2f2;
+    gridline-color: #5a5a5a;
+    selection-background-color: #666666;
+    selection-color: #ffffff;
+    border: 1px solid #4a4a4a;
+    border-radius: 8px;
+    font-size: 15px; /* Matching the button font size */
+    width: 100%;
+    height: 100%;
+}
+QTableWidget::item {
+    padding: 6px 12px;  /* Reduced padding to make room for text */
+    font-size: 15px; /* Same as button text size */
+}
+
+/* Header section for the table */
+QHeaderView::section {
+    background-color: #4c4c4c;
+    color: #ffffff;
+    padding: 6px;
+    border: none;
+    font-size: 15px;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    min-width: 50px;
+}
+
+/* Adjust the vertical header to have a darker color for contrast */
+QTableWidget::verticalHeader {
+    background-color: #444444;
+    color: #ffffff;
+}
+
+/* Adjust the horizontal scrollbar for better visibility */
+QScrollBar:horizontal {
+    background-color: #3a3a3a;
+    height: 12px;
+    border-radius: 6px;
+}
+QScrollBar::handle:horizontal {
+    background-color: #888888;
+    border-radius: 20px;
+}
+
+QScrollBar:vertical {
+    background-color: #3a3a3a;
+    width: 12px;
+    border-radius: 6px;
+}
+QScrollBar::handle:vertical {
+    background-color: #888888;
+    border-radius: 20px;
+}
