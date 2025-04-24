@@ -18,7 +18,7 @@ QPushButton {
     background-color: #4a4a4a;
     color: #f0f0f0;
     border: none;
-    border-radius: 8px;
+    border-radius: 30px;
     padding: 10px 16px;
     margin: 6px 0;
     font-size: 15px; /* Same size as the table text */
