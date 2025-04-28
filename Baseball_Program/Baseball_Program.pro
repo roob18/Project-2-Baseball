@@ -23,7 +23,8 @@ SOURCES += \
     src/tripplanner.cpp \
     src/adminmanager.cpp \
     src/adminlogindialog.cpp \
-    src/adminpanel.cpp
+    src/adminpanel.cpp \
+    src/shortesttripdialog.cpp
 
 HEADERS += \
     src/mainwindow.h \
@@ -34,14 +35,16 @@ HEADERS += \
     src/hashmap.h \
     src/adminmanager.h \
     src/adminlogindialog.h \
-    src/adminpanel.h
+    src/adminpanel.h \
+    src/shortesttripdialog.h
 
 FORMS += \
     src/mainwindow.ui \
     src/souvenirdialog.ui \
     src/tripplanner.ui \
     src/adminlogindialog.ui \
-    src/adminpanel.ui
+    src/adminpanel.ui \
+    src/shortesttripdialog.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
