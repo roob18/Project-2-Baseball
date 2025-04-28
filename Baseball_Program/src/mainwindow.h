@@ -9,6 +9,9 @@
 #include <QTableWidget>
 #include "database.h"
 #include "souvenirdialog.h"
+#include <QPushButton>
+#include "hashmap.h"
+#include "adminmanager.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -37,13 +40,23 @@ private slots:
     void onImportCSV();
     void viewTeamSouvenirs();
     void on_adminLoginButton_clicked();
+    void on_addStadiumButton_clicked();
+    void on_updateSouvenirPriceButton_clicked();
+    void on_addTraditionalSouvenirButton_clicked();
+    void on_deleteTraditionalSouvenirButton_clicked();
+    void on_shortestTripButton_clicked();
 
 private:
     Ui::MainWindow *ui;
     Database *db;
+    AdminManager *adminManager;
+    bool isAdminLoggedIn;
+    HashMap<QString, StadiumInfo> stadiumMap;
     void setupConnections();
     void clearResults();
     void displayQueryResults(QSqlQuery &query, const QStringList &headers);
+    void setupAdminUI();
+    void showAdminOnlyUI(bool show);
 };
 
 #endif // MAINWINDOW_H 

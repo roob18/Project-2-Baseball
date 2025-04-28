@@ -2,6 +2,7 @@
 #include "ui_mainwindow.h"
 #include "adminlogindialog.h"
 #include "adminpanel.h"
+#include "shortesttripdialog.h"
 #include <QVBoxLayout>
 #include <QPushButton>
 #include <QComboBox>
@@ -243,4 +244,39 @@ void MainWindow::on_adminLoginButton_clicked()
         adminPanel->exec();
         delete adminPanel;
     }
+}
+
+void MainWindow::setupAdminUI()
+{
+    // Add admin login button to the main window
+    QPushButton *adminLoginButton = new QPushButton("Admin Login", this);
+    ui->toolBar->addWidget(adminLoginButton);
+    connect(adminLoginButton, &QPushButton::clicked, this, &MainWindow::on_adminLoginButton_clicked);
+
+    // Add admin-only buttons (initially hidden)
+    QPushButton *addStadiumButton = new QPushButton("Add Stadium", this);
+    QPushButton *updateSouvenirPriceButton = new QPushButton("Update Souvenir Price", this);
+    QPushButton *addTraditionalSouvenirButton = new QPushButton("Add Traditional Souvenir", this);
+    QPushButton *deleteTraditionalSouvenirButton = new QPushButton("Delete Traditional Souvenir", this);
+
+    ui->toolBar->addWidget(addStadiumButton);
+    ui->toolBar->addWidget(updateSouvenirPriceButton);
+    ui->toolBar->addWidget(addTraditionalSouvenirButton);
+    ui->toolBar->addWidget(deleteTraditionalSouvenirButton);
+
+    connect(addStadiumButton, &QPushButton::clicked, this, &MainWindow::on_addStadiumButton_clicked);
+    connect(updateSouvenirPriceButton, &QPushButton::clicked, this, &MainWindow::on_updateSouvenirPriceButton_clicked);
+    connect(addTraditionalSouvenirButton, &QPushButton::clicked, this, &MainWindow::on_addTraditionalSouvenirButton_clicked);
+    connect(deleteTraditionalSouvenirButton, &QPushButton::clicked, this, &MainWindow::on_deleteTraditionalSouvenirButton_clicked);
+
+    // Add shortest trip button
+    QPushButton *shortestTripButton = new QPushButton("Plan Shortest Trip", this);
+    ui->toolBar->addWidget(shortestTripButton);
+    connect(shortestTripButton, &QPushButton::clicked, this, &MainWindow::on_shortestTripButton_clicked);
+}
+
+void MainWindow::on_shortestTripButton_clicked()
+{
+    ShortestTripDialog dialog(stadiumMap, this);
+    dialog.exec();
 }

@@ -3,6 +3,9 @@
 
 #include <QString>
 #include <QVector>
+#include <QMap>
+#include <QPair>
+#include <limits>
 #include "hashmap.h"
 
 struct TripStop {
@@ -11,6 +14,20 @@ struct TripStop {
     double totalCost;
     
     TripStop() : totalCost(0.0) {}
+};
+
+struct Edge {
+    QString destination;
+    double distance;
+};
+
+struct Vertex {
+    QString name;
+    double distance;
+    QString previous;
+    bool visited;
+    
+    Vertex() : distance(std::numeric_limits<double>::infinity()), visited(false) {}
 };
 
 class Trip {
@@ -24,7 +41,7 @@ public:
     void addSouvenir(const QString& souvenirName, int quantity);
     
     // Calculate total distance of trip
-    int calculateTotalDistance(const HashMap<QString, StadiumInfo>& stadiumMap) const;
+    double calculateTotalDistance(const HashMap<QString, StadiumInfo>& stadiumMap) const;
     
     // Calculate total cost of trip (including souvenirs)
     double calculateTotalCost() const;
@@ -53,8 +70,20 @@ public:
     // Get teams by date opened (before or after a specific year)
     QVector<TripStop> getTeamsByDateOpened(int year, bool before, const HashMap<QString, StadiumInfo>& stadiumMap) const;
 
+    // New methods for shortest path planning
+    QVector<QString> findShortestPath(const QString& start, const QVector<QString>& destinations, 
+                                    const HashMap<QString, StadiumInfo>& stadiumMap);
+    double getPathDistance(const QVector<QString>& path, const HashMap<QString, StadiumInfo>& stadiumMap) const;
+
 private:
     QVector<TripStop> stops;
+    QMap<QString, Vertex> vertices;
+    QMap<QString, QVector<Edge>> adjacencyList;
+
+    void initializeGraph(const HashMap<QString, StadiumInfo>& stadiumMap);
+    QString getMinDistanceVertex() const;
+    void relax(const QString& u, const QString& v, double weight);
+    QVector<QString> getPath(const QString& start, const QString& end) const;
 };
 
 #endif // TRIP_H 
