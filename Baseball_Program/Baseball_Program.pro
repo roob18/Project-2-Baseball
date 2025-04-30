@@ -18,6 +18,7 @@ SOURCES += \
     src/main.cpp \
     src/mainwindow.cpp \
     src/database.cpp \
+    src/souvenircheckoutdialog.cpp \
     src/souvenirdialog.cpp \
     src/trip.cpp \
     src/tripplanner.cpp \
@@ -28,6 +29,7 @@ SOURCES += \
 HEADERS += \
     src/mainwindow.h \
     src/database.h \
+    src/souvenircheckoutdialog.h \
     src/souvenirdialog.h \
     src/trip.h \
     src/tripplanner.h \
