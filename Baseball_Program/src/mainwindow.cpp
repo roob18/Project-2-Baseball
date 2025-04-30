@@ -2,6 +2,7 @@
 #include "ui_mainwindow.h"
 #include "adminlogindialog.h"
 #include "adminpanel.h"
+#include "souvenircheckoutdialog.h"
 #include <QVBoxLayout>
 #include <QPushButton>
 #include <QComboBox>
@@ -222,6 +223,11 @@ void MainWindow::viewTeamSouvenirs()
         return;
     }
 
+    SouvenirCheckoutDialog* dialog = new SouvenirCheckoutDialog(selectedTeam, db->database(), this);
+    dialog->exec();
+    delete dialog;
+
+    /*
     QSqlQuery query(db->database());
     query.prepare("SELECT item_name, price FROM souvenirs WHERE team_name = :team");
     query.bindValue(":team", selectedTeam);
@@ -233,6 +239,7 @@ void MainWindow::viewTeamSouvenirs()
     } else {
         QMessageBox::critical(this, "Error", "Failed to fetch souvenirs: " + query.lastError().text());
     }
+    */
 }
 
 void MainWindow::on_adminLoginButton_clicked()
