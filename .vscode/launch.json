@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "lldb",
+      "request": "launch",
+      "args": [],
+      "cwd": "/Users/reise/Baseball_Program/src",
+      "program": "/Users/reise/Baseball_Program/src/build/Debug/outDebug"
+    }
+  ]
+}

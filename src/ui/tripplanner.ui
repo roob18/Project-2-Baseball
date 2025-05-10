@@ -1,0 +1,331 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>TripPlanner</class>
+ <widget class="QDialog" name="TripPlanner">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>800</width>
+    <height>750</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Trip Planner</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QGroupBox" name="tripTypeGroup">
+     <property name="title">
+      <string>Trip Planning</string>
+     </property>
+     <layout class="QHBoxLayout" name="tripTypeLayout">
+      <item>
+       <widget class="QLabel" name="algorithmLabel">
+        <property name="text">
+         <string>Trip Planning Algorithm:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="algorithmCombo">
+        <item>
+         <property name="text">
+          <string>Dodger Stadium to Any (Dijkstra/A*)</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Custom Order Trip</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Visit All (Marlins Park, Greedy)</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Dream Vacation (Optimized Order)</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>MST (Prim/Kruskal)</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>DFS from Oracle Park</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>BFS from Target Field</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="dfsBfsStartLabel">
+        <property name="text">
+         <string>DFS/BFS Starting Stadium:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="dfsBfsStartCombo"/>
+      </item>
+      <item>
+       <widget class="QPushButton" name="planTripButton">
+        <property name="text">
+         <string>Plan Trip</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="stadiumSelectionGroup">
+     <property name="title">
+      <string>Stadium Selection</string>
+     </property>
+     <layout class="QVBoxLayout" name="stadiumSelectionVBox">
+      <item>
+       <layout class="QHBoxLayout" name="importCsvLayout">
+        <item>
+         <widget class="QLabel" name="startingStadiumLabel">
+          <property name="text">
+           <string>Starting Stadium:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="startingStadiumCombo"/>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer1">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="stadiumSelectionLayout">
+        <item>
+         <widget class="QLabel" name="availableStadiumsLabel">
+          <property name="text">
+           <string>Available Stadiums:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QListWidget" name="availableStadiumsList">
+          <property name="selectionMode">
+           <enum>QAbstractItemView::SingleSelection</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="addStopButton">
+          <property name="text">
+           <string>Add Stadium</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="removeStopButton">
+          <property name="text">
+           <string>Remove Selected</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="souvenirGroup">
+     <property name="title">
+      <string>Souvenir Purchase</string>
+     </property>
+     <layout class="QVBoxLayout" name="souvenirLayout">
+      <item>
+       <widget class="QTableWidget" name="souvenirTable">
+        <property name="columnCount">
+         <number>3</number>
+        </property>
+        <property name="rowCount">
+         <number>0</number>
+        </property>
+        <property name="minimumHeight">
+         <number>120</number>
+        </property>
+        <column>
+         <property name="text">
+          <string>Souvenir</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Price</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Quantity</string>
+         </property>
+        </column>
+       </widget>
+      </item>
+      <item>
+       <spacer name="verticalSpacerAboveAddSouvenir">
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>10</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QPushButton" name="addSouvenirButton">
+        <property name="text">
+         <string>Add Souvenir to Cart</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="verticalSpacerBelowAddSouvenir">
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>10</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QLabel" name="souvenirSummaryLabel">
+        <property name="text">
+         <string>Souvenir Summary: </string>
+        </property>
+        <property name="margin">
+         <number>8</number>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="tripSummaryGroup">
+     <property name="title">
+      <string>Trip Summary</string>
+     </property>
+     <layout class="QVBoxLayout" name="tripSummaryLayout">
+      <item>
+       <widget class="QTextEdit" name="tripSummaryText">
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
+        <property name="placeholderText">
+         <string>Trip summary and details will appear here...</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="summaryLabelsLayout">
+        <item>
+         <widget class="QLabel" name="totalDistanceLabel">
+          <property name="text">
+           <string>Total Distance: 0 miles</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="totalCostLabel">
+          <property name="text">
+           <string>Total Cost: $0.00</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="tripStadiumsLabel">
+     <property name="text">
+      <string>Trip Stadiums:</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QListWidget" name="tripStadiumsList"/>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Close</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted</signal>
+   <receiver>TripPlanner</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>254</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected</signal>
+   <receiver>TripPlanner</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>316</x>
+     <y>260</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui> 
