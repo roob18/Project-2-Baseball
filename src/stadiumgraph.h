@@ -31,6 +31,8 @@ public:
     void debugPrintAllStadiumConnections() const;
     void debugPrintMissingEdges() const;
     void debugPrintAllNeighbors() const;
+    void debugPrintUnreachableStadiums() const;
+    void debugPrintAllMissingPaths() const;
 
     bool isConnected() const;
 

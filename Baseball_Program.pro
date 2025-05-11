@@ -22,7 +22,8 @@ SOURCES += \
     src/souvenirdialog.cpp \
     src/tripplanner.cpp \
     src/stadiumgraph.cpp \
-    src/trip.cpp
+    src/trip.cpp \
+    src/adminlogindialog.cpp
 
 HEADERS += \
     src/mainwindow.h \
@@ -31,13 +32,15 @@ HEADERS += \
     src/souvenirdialog.h \
     src/tripplanner.h \
     src/stadiumgraph.h \
-    src/trip.h
+    src/trip.h \
+    src/adminlogindialog.h
 
 FORMS += \
     src/mainwindow.ui \
     src/adminpanel.ui \
     src/souvenirdialog.ui \
-    src/ui/tripplanner.ui
+    src/ui/tripplanner.ui \
+    src/ui/adminlogindialog.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

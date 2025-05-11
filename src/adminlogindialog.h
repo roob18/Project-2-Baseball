@@ -3,6 +3,7 @@
 
 #include <QDialog>
 #include "database.h"
+#include "stadiumgraph.h"
 
 namespace Ui {
 class AdminLoginDialog;
@@ -13,7 +14,7 @@ class AdminLoginDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit AdminLoginDialog(Database* database, QWidget *parent = nullptr);
+    explicit AdminLoginDialog(Database* database, StadiumGraph* stadiumGraph, QWidget *parent = nullptr);
     ~AdminLoginDialog();
 
 private slots:
@@ -23,6 +24,7 @@ private slots:
 private:
     Ui::AdminLoginDialog *ui;
     Database* db;
+    StadiumGraph* stadiumGraph;
 };
 
 #endif // ADMINLOGINDIALOG_H 

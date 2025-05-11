@@ -47,6 +47,7 @@ private slots:
     void on_startingStadiumCombo_currentIndexChanged(const QString &stadium);
     void on_planTripButton_clicked();
     void updateAlgorithmUIVisibility();
+    void on_removeSouvenirButton_clicked();
 
 private:
     Ui::TripPlanner *ui;
@@ -59,6 +60,7 @@ private:
     void updateTotalCost();
     void updateTotalDistance();
     void updateOverallSouvenirSummary();
+    QString findTeamNameByStadium(const QString& normalizedStadium) const;
 };
 
 #endif // TRIPPLANNER_H 

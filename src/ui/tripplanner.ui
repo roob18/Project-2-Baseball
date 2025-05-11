@@ -41,7 +41,7 @@
         </item>
         <item>
          <property name="text">
-          <string>Visit All (Marlins Park, Greedy)</string>
+          <string>Visit All (Marlins Park, Shortest Paths)</string>
          </property>
         </item>
         <item>
@@ -228,6 +228,51 @@
         </property>
         <property name="margin">
          <number>8</number>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QTableWidget" name="souvenirCartTable">
+        <property name="columnCount">
+         <number>5</number>
+        </property>
+        <property name="rowCount">
+         <number>0</number>
+        </property>
+        <property name="minimumHeight">
+         <number>120</number>
+        </property>
+        <column>
+         <property name="text">
+          <string>Stadium</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Souvenir</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Quantity</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Price</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Total</string>
+         </property>
+        </column>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="removeSouvenirButton">
+        <property name="text">
+         <string>Remove Selected Souvenir</string>
         </property>
        </widget>
       </item>

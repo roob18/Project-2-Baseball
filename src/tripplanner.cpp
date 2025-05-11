@@ -3,6 +3,8 @@
 #include <QMessageBox>
 #include <QInputDialog>
 #include <QDebug>
+#include <algorithm>
+#include <limits>
 
 TripPlanner::TripPlanner(const HashMap<QString, StadiumInfo>& stadiumMap, StadiumGraph* stadiumGraph, QWidget *parent)
     : QDialog(parent)
@@ -19,6 +21,7 @@ TripPlanner::TripPlanner(const HashMap<QString, StadiumInfo>& stadiumMap, Stadiu
     connect(ui->startingStadiumCombo, &QComboBox::currentTextChanged, this, &TripPlanner::on_startingStadiumCombo_currentIndexChanged);
     if (ui->planTripButton) connect(ui->planTripButton, &QPushButton::clicked, this, &TripPlanner::on_planTripButton_clicked);
     if (ui->algorithmCombo) connect(ui->algorithmCombo, &QComboBox::currentTextChanged, this, &TripPlanner::updateAlgorithmUIVisibility);
+    if (ui->removeSouvenirButton) connect(ui->removeSouvenirButton, &QPushButton::clicked, this, &TripPlanner::on_removeSouvenirButton_clicked);
     updateAlgorithmUIVisibility();
 }
 
@@ -105,6 +108,15 @@ void TripPlanner::on_dijkstraButton_clicked()
     summary += QString("\n\nTotal Distance: %1 miles").arg(distance, 0, 'f', 2);
     ui->tripSummaryText->setText(summary);
     ui->totalDistanceLabel->setText(QString("Total Distance: %1 miles").arg(distance, 0, 'f', 2));
+    // Update Trip Stadiums list
+    ui->tripStadiumsList->clear();
+    for (const QString& stadium : path) {
+        ui->tripStadiumsList->addItem(findTeamNameByStadium(stadium));
+    }
+    if (ui->tripStadiumsList->count() > 0) {
+        ui->tripStadiumsList->setCurrentRow(0);
+        updateSouvenirTableForSelectedStadium();
+    }
 }
 
 void TripPlanner::on_mstButton_clicked()
@@ -113,12 +125,15 @@ void TripPlanner::on_mstButton_clicked()
     double totalWeight = stadiumGraph->minimumSpanningTree(mst);
     QString summary = "Minimum Spanning Tree:\n";
     int validEdgeCount = 0;
+    QSet<QString> stadiumsInMST;
     for (const auto& edge : mst) {
         if (edge.first.isNull() || edge.second.isNull() || edge.first.isEmpty() || edge.second.isEmpty()) {
             continue; // skip invalid edges
         }
         summary += edge.first + " -- " + edge.second + "\n";
         ++validEdgeCount;
+        stadiumsInMST.insert(edge.first);
+        stadiumsInMST.insert(edge.second);
     }
     summary += QString("\nTotal Distance: %1 miles").arg(totalWeight, 0, 'f', 2);
     if (validEdgeCount == 0) {
@@ -129,6 +144,15 @@ void TripPlanner::on_mstButton_clicked()
     }
     ui->tripSummaryText->setText(summary);
     ui->totalDistanceLabel->setText(QString("Total Distance: %1 miles").arg(totalWeight, 0, 'f', 2));
+    // Update Trip Stadiums list (all unique stadiums in MST)
+    ui->tripStadiumsList->clear();
+    for (const QString& stadium : stadiumsInMST) {
+        ui->tripStadiumsList->addItem(findTeamNameByStadium(stadium));
+    }
+    if (ui->tripStadiumsList->count() > 0) {
+        ui->tripStadiumsList->setCurrentRow(0);
+        updateSouvenirTableForSelectedStadium();
+    }
 }
 
 void TripPlanner::on_dfsButton_clicked()
@@ -179,6 +203,15 @@ void TripPlanner::on_dfsButton_clicked()
     summary += QString("\nTotal Distance: %1 miles").arg(distance, 0, 'f', 2);
     ui->tripSummaryText->setText(summary);
     ui->totalDistanceLabel->setText(QString("Total Distance: %1 miles").arg(distance, 0, 'f', 2));
+    // Update Trip Stadiums list
+    ui->tripStadiumsList->clear();
+    for (const QString& stadium : path) {
+        ui->tripStadiumsList->addItem(findTeamNameByStadium(stadium));
+    }
+    if (ui->tripStadiumsList->count() > 0) {
+        ui->tripStadiumsList->setCurrentRow(0);
+        updateSouvenirTableForSelectedStadium();
+    }
 }
 
 void TripPlanner::on_bfsButton_clicked()
@@ -229,6 +262,15 @@ void TripPlanner::on_bfsButton_clicked()
     summary += QString("\nTotal Distance: %1 miles").arg(distance, 0, 'f', 2);
     ui->tripSummaryText->setText(summary);
     ui->totalDistanceLabel->setText(QString("Total Distance: %1 miles").arg(distance, 0, 'f', 2));
+    // Update Trip Stadiums list
+    ui->tripStadiumsList->clear();
+    for (const QString& stadium : path) {
+        ui->tripStadiumsList->addItem(findTeamNameByStadium(stadium));
+    }
+    if (ui->tripStadiumsList->count() > 0) {
+        ui->tripStadiumsList->setCurrentRow(0);
+        updateSouvenirTableForSelectedStadium();
+    }
 }
 
 void TripPlanner::on_filterLeagueCombo_currentIndexChanged(const QString &league) {
@@ -277,19 +319,24 @@ void TripPlanner::on_addSouvenirButton_clicked() {
     QMap<QString, int> merged;
     // Start with existing purchases
     for (const auto& pair : souvenirCart[stadium]) {
-        merged[pair.first] += pair.second;
+        merged[pair.first] = pair.second;
     }
-    // Add new purchases
+    // Add new purchases (overwrite with new quantity)
     for (int i = 0; i < ui->souvenirTable->rowCount(); ++i) {
         QString name = ui->souvenirTable->item(i, 0)->text();
         int qty = ui->souvenirTable->item(i, 2)->text().toInt();
-        if (qty > 0) merged[name] += qty;
+        merged[name] = qty;
     }
+    // Remove items with 0 quantity
     QVector<QPair<QString, int>> mergedList;
     for (auto it = merged.begin(); it != merged.end(); ++it) {
         if (it.value() > 0) mergedList.append(qMakePair(it.key(), it.value()));
     }
-    souvenirCart[stadium] = mergedList;
+    if (mergedList.isEmpty()) {
+        souvenirCart.remove(stadium);
+    } else {
+        souvenirCart[stadium] = mergedList;
+    }
     updateOverallSouvenirSummary();
     QMessageBox::information(this, "Success", "Souvenir(s) added successfully!");
 }
@@ -309,7 +356,72 @@ void TripPlanner::on_aStarButton_clicked() {
 }
 
 void TripPlanner::on_greedyButton_clicked() {
-    // TODO: Implement greedy trip logic
+    // Start at Marlins Park (Miami Marlins), map and normalize all stadiums
+    QString startTeam = "Miami Marlins";
+    StadiumInfo startInfo;
+    if (!stadiumMap.get(startTeam, startInfo)) {
+        QMessageBox::warning(this, "Error", "Could not find Marlins Park (Miami Marlins) in the stadium map.");
+        return;
+    }
+    QString startStadium = StadiumGraph::normalizeStadiumName(startInfo.stadiumName.trimmed());
+    // Get all stadiums except the starting one, map and normalize
+    QVector<QString> allStadiums;
+    QVector<QPair<QString, StadiumInfo>> entries = stadiumMap.getAllEntries();
+    for (const auto& entry : entries) {
+        QString stadium = StadiumGraph::normalizeStadiumName(entry.second.stadiumName.trimmed());
+        if (stadium != startStadium) {
+            allStadiums.append(stadium);
+        }
+    }
+    qDebug() << "Greedy trip start:" << startStadium << ", stops:" << allStadiums;
+    QVector<QString> tripOrder;
+    double totalDistance = 0.0;
+    QString current = startStadium;
+    QVector<QString> unvisited = allStadiums;
+    tripOrder.append(current);
+    while (!unvisited.isEmpty()) {
+        double bestDist = std::numeric_limits<double>::infinity();
+        int bestIdx = -1;
+        QVector<QString> bestPath;
+        for (int i = 0; i < unvisited.size(); ++i) {
+            QVector<QString> path;
+            double dist = stadiumGraph->dijkstra(current, unvisited[i], path);
+            if (dist >= 0 && dist < bestDist) {
+                bestDist = dist;
+                bestIdx = i;
+                bestPath = path;
+            }
+        }
+        if (bestIdx == -1) {
+            QMessageBox::warning(this, "Trip Error", QString("No path found to remaining stops from '%1'.").arg(current));
+            ui->tripSummaryText->setText("No path found to remaining stops from " + current + ".");
+            ui->totalDistanceLabel->setText("Total Distance: 0 miles");
+            return;
+        }
+        // Add the path (skip the first stadium to avoid duplicates)
+        for (int j = 1; j < bestPath.size(); ++j) {
+            tripOrder.append(bestPath[j]);
+        }
+        totalDistance += bestDist;
+        current = unvisited.takeAt(bestIdx);
+    }
+    QString summary = "Visit All (Marlins Park, Shortest Paths):\n";
+    for (int i = 0; i < tripOrder.size(); ++i) {
+        summary += tripOrder[i];
+        if (i < tripOrder.size() - 1) summary += " -> ";
+    }
+    summary += QString("\n\nTotal Distance: %1 miles").arg(totalDistance, 0, 'f', 2);
+    ui->tripSummaryText->setText(summary);
+    ui->totalDistanceLabel->setText(QString("Total Distance: %1 miles").arg(totalDistance, 0, 'f', 2));
+    // Update Trip Stadiums list
+    ui->tripStadiumsList->clear();
+    for (const QString& stadium : tripOrder) {
+        ui->tripStadiumsList->addItem(findTeamNameByStadium(stadium));
+    }
+    if (ui->tripStadiumsList->count() > 0) {
+        ui->tripStadiumsList->setCurrentRow(0);
+        updateSouvenirTableForSelectedStadium();
+    }
 }
 
 void TripPlanner::updateSouvenirTableForSelectedStadium() {
@@ -345,13 +457,194 @@ void TripPlanner::on_dodgerToAnyButton_clicked() {
     // TODO: Implement Dodger Stadium to any team trip logic
 }
 void TripPlanner::on_customOrderTripButton_clicked() {
-    // TODO: Implement custom order trip logic
+    // Get stadiums in the order shown in tripStadiumsList, map team name to stadium name, normalize
+    QVector<QString> stadiums;
+    for (int i = 0; i < ui->tripStadiumsList->count(); ++i) {
+        QString teamOrStadium = ui->tripStadiumsList->item(i)->text().trimmed();
+        StadiumInfo info;
+        QString stadiumName;
+        if (stadiumMap.get(teamOrStadium, info)) {
+            stadiumName = info.stadiumName.trimmed();
+        } else {
+            stadiumName = teamOrStadium;
+        }
+        stadiums.append(StadiumGraph::normalizeStadiumName(stadiumName));
+    }
+    qDebug() << "Custom Order Trip normalized stadiums:" << stadiums;
+    if (stadiums.size() < 2) {
+        QMessageBox::warning(this, "Trip Error", "Please select at least two stadiums for a custom order trip.");
+        return;
+    }
+    double totalDistance = 0.0;
+    QVector<QString> fullPath;
+    for (int i = 0; i < stadiums.size() - 1; ++i) {
+        QString from = stadiums[i];
+        QString to = stadiums[i + 1];
+        QVector<QString> segmentPath;
+        double dist = stadiumGraph->dijkstra(from, to, segmentPath);
+        qDebug() << "Dijkstra from" << from << "to" << to << ": path=" << segmentPath << ", dist=" << dist;
+        if (dist < 0 || segmentPath.isEmpty()) {
+            QMessageBox::warning(this, "Trip Error", QString("No path between '%1' and '%2'.").arg(from, to));
+            ui->tripSummaryText->setText("No path between selected stadiums.");
+            ui->totalDistanceLabel->setText("Total Distance: 0 miles");
+            return;
+        }
+        // Avoid duplicating the starting stadium of each segment (except the first)
+        if (i == 0) {
+            fullPath += segmentPath;
+        } else {
+            for (int j = 1; j < segmentPath.size(); ++j) {
+                fullPath.append(segmentPath[j]);
+            }
+        }
+        totalDistance += dist;
+    }
+    QString summary = "Custom Order Trip (Shortest Paths):\n";
+    for (int i = 0; i < fullPath.size(); ++i) {
+        summary += fullPath[i];
+        if (i < fullPath.size() - 1) summary += " -> ";
+    }
+    summary += QString("\n\nTotal Distance: %1 miles").arg(totalDistance, 0, 'f', 2);
+    ui->tripSummaryText->setText(summary);
+    ui->totalDistanceLabel->setText(QString("Total Distance: %1 miles").arg(totalDistance, 0, 'f', 2));
+    // Update Trip Stadiums list
+    ui->tripStadiumsList->clear();
+    for (const QString& stadium : fullPath) {
+        ui->tripStadiumsList->addItem(findTeamNameByStadium(stadium));
+    }
+    if (ui->tripStadiumsList->count() > 0) {
+        ui->tripStadiumsList->setCurrentRow(0);
+        updateSouvenirTableForSelectedStadium();
+    }
 }
 void TripPlanner::on_visitAllMarlinsButton_clicked() {
     // TODO: Implement visit all teams from Marlins Park logic
 }
 void TripPlanner::on_dreamVacationButton_clicked() {
-    // TODO: Implement dream vacation (optimized order) logic
+    // Map/normalize all stadiums in tripStadiumsList
+    QVector<QString> stadiums;
+    for (int i = 0; i < ui->tripStadiumsList->count(); ++i) {
+        QString teamOrStadium = ui->tripStadiumsList->item(i)->text().trimmed();
+        StadiumInfo info;
+        QString stadiumName;
+        if (stadiumMap.get(teamOrStadium, info)) {
+            stadiumName = info.stadiumName.trimmed();
+        } else {
+            stadiumName = teamOrStadium;
+        }
+        stadiums.append(StadiumGraph::normalizeStadiumName(stadiumName));
+    }
+    qDebug() << "Dream Vacation normalized stadiums:" << stadiums;
+    if (stadiums.size() < 2) {
+        QMessageBox::warning(this, "Trip Error", "Please select at least two stadiums for a dream vacation trip.");
+        return;
+    }
+    QVector<QString> bestOrder;
+    double minDistance = std::numeric_limits<double>::infinity();
+    // Brute-force for small N, nearest neighbor for larger
+    if (stadiums.size() <= 8) {
+        QVector<QString> perm = stadiums;
+        std::sort(perm.begin(), perm.end());
+        do {
+            double dist = 0.0;
+            bool valid = true;
+            for (int i = 0; i < perm.size() - 1; ++i) {
+                QVector<QString> segmentPath;
+                double d = stadiumGraph->dijkstra(perm[i], perm[i+1], segmentPath);
+                qDebug() << "Permutation check:" << perm << ", Dijkstra from" << perm[i] << "to" << perm[i+1] << ": path=" << segmentPath << ", dist=" << d;
+                if (d < 0 || segmentPath.isEmpty()) { valid = false; break; }
+                dist += d;
+            }
+            if (valid && dist < minDistance) {
+                minDistance = dist;
+                bestOrder = perm;
+            }
+        } while (std::next_permutation(perm.begin(), perm.end()));
+    } else {
+        // Nearest neighbor heuristic
+        QVector<QString> toVisit = stadiums;
+        QVector<QString> order;
+        QString current = toVisit.takeFirst();
+        order.append(current);
+        while (!toVisit.isEmpty()) {
+            double bestDist = std::numeric_limits<double>::infinity();
+            int bestIdx = -1;
+            QVector<QString> bestPath;
+            for (int i = 0; i < toVisit.size(); ++i) {
+                QVector<QString> segmentPath;
+                double d = stadiumGraph->dijkstra(current, toVisit[i], segmentPath);
+                if (d >= 0 && d < bestDist) {
+                    bestDist = d;
+                    bestIdx = i;
+                    bestPath = segmentPath;
+                }
+            }
+            if (bestIdx == -1) {
+                QMessageBox::warning(this, "Trip Error", "No path between some stadiums in the selection.");
+                ui->tripSummaryText->setText("No path between some stadiums in the selection.");
+                ui->totalDistanceLabel->setText("Total Distance: 0 miles");
+                return;
+            }
+            current = toVisit.takeAt(bestIdx);
+            order.append(current);
+        }
+        bestOrder = order;
+        // Compute minDistance for the found order
+        minDistance = 0.0;
+        for (int i = 0; i < bestOrder.size() - 1; ++i) {
+            QVector<QString> segmentPath;
+            double d = stadiumGraph->dijkstra(bestOrder[i], bestOrder[i+1], segmentPath);
+            if (d < 0 || segmentPath.isEmpty()) {
+                minDistance = std::numeric_limits<double>::infinity();
+                break;
+            }
+            minDistance += d;
+        }
+    }
+    if (bestOrder.isEmpty() || minDistance == std::numeric_limits<double>::infinity()) {
+        QMessageBox::warning(this, "Trip Error", "Could not find a valid optimized trip order.");
+        ui->tripSummaryText->setText("Could not find a valid optimized trip order.");
+        ui->totalDistanceLabel->setText("Total Distance: 0 miles");
+        return;
+    }
+    // Now, build the full path using Dijkstra for each consecutive pair in bestOrder
+    double totalDistance = 0.0;
+    QVector<QString> fullPath;
+    for (int i = 0; i < bestOrder.size() - 1; ++i) {
+        QVector<QString> segmentPath;
+        double dist = stadiumGraph->dijkstra(bestOrder[i], bestOrder[i+1], segmentPath);
+        if (dist < 0 || segmentPath.isEmpty()) {
+            QMessageBox::warning(this, "Trip Error", QString("No path between '%1' and '%2'.").arg(bestOrder[i], bestOrder[i+1]));
+            ui->tripSummaryText->setText("No path between selected stadiums.");
+            ui->totalDistanceLabel->setText("Total Distance: 0 miles");
+            return;
+        }
+        if (i == 0) {
+            fullPath += segmentPath;
+        } else {
+            for (int j = 1; j < segmentPath.size(); ++j) {
+                fullPath.append(segmentPath[j]);
+            }
+        }
+        totalDistance += dist;
+    }
+    QString summary = "Dream Vacation (Optimized Order, Shortest Paths):\n";
+    for (int i = 0; i < fullPath.size(); ++i) {
+        summary += fullPath[i];
+        if (i < fullPath.size() - 1) summary += " -> ";
+    }
+    summary += QString("\n\nTotal Distance: %1 miles").arg(totalDistance, 0, 'f', 2);
+    ui->tripSummaryText->setText(summary);
+    ui->totalDistanceLabel->setText(QString("Total Distance: %1 miles").arg(totalDistance, 0, 'f', 2));
+    // Update Trip Stadiums list
+    ui->tripStadiumsList->clear();
+    for (const QString& stadium : fullPath) {
+        ui->tripStadiumsList->addItem(findTeamNameByStadium(stadium));
+    }
+    if (ui->tripStadiumsList->count() > 0) {
+        ui->tripStadiumsList->setCurrentRow(0);
+        updateSouvenirTableForSelectedStadium();
+    }
 }
 void TripPlanner::on_dfsOracleButton_clicked() {
     // TODO: Implement DFS from Oracle Park logic
@@ -393,30 +686,35 @@ void TripPlanner::on_startingStadiumCombo_currentIndexChanged(const QString &sta
 
 void TripPlanner::updateOverallSouvenirSummary() {
     double totalCost = 0.0;
-    QString summary;
+    ui->souvenirCartTable->setRowCount(0);
+    int row = 0;
     for (auto it = souvenirCart.begin(); it != souvenirCart.end(); ++it) {
         const QString& stadium = it.key();
         const QVector<QPair<QString, int>>& items = it.value();
-        if (!items.isEmpty()) {
-            summary += stadium + ": ";
-            QStringList itemList;
-            StadiumInfo info;
-            stadiumMap.get(stadium, info);
-            for (const auto& pair : items) {
-                double price = 0.0;
-                for (const auto& souvenir : info.souvenirs) {
-                    if (souvenir.first == pair.first) price = souvenir.second;
-                }
-                double cost = price * pair.second;
-                totalCost += cost;
-                itemList << QString("%1 x%2 ($%3)").arg(pair.first).arg(pair.second).arg(cost, 0, 'f', 2);
+        StadiumInfo info;
+        stadiumMap.get(stadium, info);
+        for (const auto& pair : items) {
+            double price = 0.0;
+            for (const auto& souvenir : info.souvenirs) {
+                if (souvenir.first == pair.first) price = souvenir.second;
             }
-            summary += itemList.join(", ") + "\n";
+            double cost = price * pair.second;
+            totalCost += cost;
+            ui->souvenirCartTable->insertRow(row);
+            ui->souvenirCartTable->setItem(row, 0, new QTableWidgetItem(stadium));
+            ui->souvenirCartTable->setItem(row, 1, new QTableWidgetItem(pair.first));
+            ui->souvenirCartTable->setItem(row, 2, new QTableWidgetItem(QString::number(pair.second)));
+            ui->souvenirCartTable->setItem(row, 3, new QTableWidgetItem(QString::number(price, 'f', 2)));
+            ui->souvenirCartTable->setItem(row, 4, new QTableWidgetItem(QString::number(cost, 'f', 2)));
+            row++;
         }
     }
-    if (summary.isEmpty()) summary = "No souvenirs selected.";
-    ui->souvenirSummaryLabel->setText("Souvenir Summary: " + summary.trimmed());
     ui->totalCostLabel->setText(QString("Total Cost: $%1").arg(totalCost, 0, 'f', 2));
+    if (row == 0) {
+        ui->souvenirSummaryLabel->setText("Souvenir Summary: No souvenirs selected.");
+    } else {
+        ui->souvenirSummaryLabel->setText("Souvenir Summary: See table below.");
+    }
 }
 
 void TripPlanner::updateAlgorithmUIVisibility() {
@@ -448,4 +746,34 @@ void TripPlanner::on_planTripButton_clicked() {
         // Default: do nothing or show a message
         QMessageBox::information(this, "Trip Planner", "Please select a valid trip planning algorithm.");
     }
+}
+
+// Add this slot for removing souvenirs from the cart
+template<typename T> static void erase_if(QMap<QString, QVector<QPair<QString, int>>>& map, T pred) {
+    for (auto it = map.begin(); it != map.end(); ) {
+        QVector<QPair<QString, int>>& items = it.value();
+        items.erase(std::remove_if(items.begin(), items.end(), [&](const QPair<QString, int>& pair) { return pred(it.key(), pair); }), items.end());
+        if (items.isEmpty()) it = map.erase(it); else ++it;
+    }
+}
+void TripPlanner::on_removeSouvenirButton_clicked() {
+    int row = ui->souvenirCartTable->currentRow();
+    if (row < 0) return;
+    QString stadium = ui->souvenirCartTable->item(row, 0)->text();
+    QString souvenir = ui->souvenirCartTable->item(row, 1)->text();
+    // Remove this souvenir from the cart
+    erase_if(souvenirCart, [&](const QString& s, const QPair<QString, int>& pair) {
+        return s == stadium && pair.first == souvenir;
+    });
+    updateOverallSouvenirSummary();
+}
+
+QString TripPlanner::findTeamNameByStadium(const QString& normalizedStadium) const {
+    QVector<QPair<QString, StadiumInfo>> entries = stadiumMap.getAllEntries();
+    for (const auto& entry : entries) {
+        if (StadiumGraph::normalizeStadiumName(entry.second.stadiumName) == normalizedStadium) {
+            return entry.first; // team name
+        }
+    }
+    return normalizedStadium; // fallback
 } 

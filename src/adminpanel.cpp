@@ -343,6 +343,9 @@ void AdminPanel::on_importDistancesButton_clicked() {
 
     if (stadiumGraph->loadMultipleCSVs(filenames)) {
         QMessageBox::information(this, "Import Successful", "Distances imported successfully.");
+        // Debug: Print unreachable stadiums and missing paths
+        stadiumGraph->debugPrintUnreachableStadiums();
+        stadiumGraph->debugPrintAllMissingPaths();
     } else {
         QMessageBox::critical(this, "Import Error", "Failed to import distances from CSV(s).");
     }

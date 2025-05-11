@@ -992,4 +992,55 @@ bool StadiumGraph::isConnected() const {
         }
         return false;
     }
+}
+
+void StadiumGraph::debugPrintUnreachableStadiums() const {
+    qDebug() << "\n=== Unreachable Stadiums Check ===";
+    QVector<QString> stadiums = getStadiums();
+    for (const QString& start : stadiums) {
+        QSet<QString> visited;
+        QQueue<QString> queue;
+        queue.enqueue(start);
+        visited.insert(start);
+        while (!queue.isEmpty()) {
+            QString current = queue.dequeue();
+            for (const QString& neighbor : adjMatrix[current].keys()) {
+                if (!visited.contains(neighbor)) {
+                    visited.insert(neighbor);
+                    queue.enqueue(neighbor);
+                }
+            }
+        }
+        if (visited.size() != stadiums.size()) {
+            qDebug() << "From" << start << ": unreachable stadiums:";
+            for (const QString& stadium : stadiums) {
+                if (!visited.contains(stadium)) {
+                    qDebug() << "-" << stadium;
+                }
+            }
+        }
+    }
+    qDebug() << "=== End Unreachable Stadiums Check ===\n";
+}
+
+void StadiumGraph::debugPrintAllMissingPaths() const {
+    qDebug() << "\n=== Missing Paths Between Stadiums (no path exists) ===";
+    QVector<QString> stadiums = getStadiums();
+    int missingCount = 0;
+    for (int i = 0; i < stadiums.size(); ++i) {
+        for (int j = i + 1; j < stadiums.size(); ++j) {
+            QVector<QString> path;
+            double dist = dijkstra(stadiums[i], stadiums[j], path);
+            if (dist < 0 || path.isEmpty()) {
+                qDebug() << stadiums[i] << "<->" << stadiums[j] << ": no path";
+                ++missingCount;
+            }
+        }
+    }
+    if (missingCount == 0) {
+        qDebug() << "No missing paths! The graph is fully connected.";
+    } else {
+        qDebug() << "Total missing paths:" << missingCount;
+    }
+    qDebug() << "=== End Missing Paths Check ===\n";
 } 

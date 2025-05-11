@@ -226,10 +226,11 @@ void MainWindow::refreshData()
 
 void MainWindow::on_adminLoginButton_clicked()
 {
-    AdminPanel* adminPanel = new AdminPanel(db, stadiumGraph, this);
-    connect(adminPanel, &AdminPanel::dataChanged, this, &MainWindow::refreshData);
-    adminPanel->exec();
-    delete adminPanel;
+    AdminLoginDialog loginDialog(db, stadiumGraph, this);
+    if (loginDialog.exec() == QDialog::Accepted) {
+        db->loadStadiumMap(); // Reload stadium and souvenir data after admin changes
+        refreshData();        // Update UI
+    }
 }
 
 void MainWindow::on_tripPlannerButton_clicked()
