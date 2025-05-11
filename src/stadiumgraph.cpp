@@ -529,7 +529,7 @@ double StadiumGraph::bfs(const QString& start, QVector<QString>& order) const {
         qDebug() << "BFS: Starting traversal from:" << nStart;
 
         while (!queue.isEmpty() && success) {
-            QString current = queue.dequeue();
+        QString current = queue.dequeue();
             qDebug() << "BFS: Processing stadium:" << current;
             
             if (!adjMatrix.contains(current)) {
@@ -777,7 +777,6 @@ void StadiumGraph::removeEmptyKeysAndNeighbors() {
 }
 
 void StadiumGraph::debugPrintAllNeighbors() const {
-    qDebug() << "\n=== All Stadium Neighbors (with hex values) ===";
     // Diagnostic: Print all keys for angelstadium at start
     if (adjMatrix.contains("angelstadium")) {
         qDebug() << "DEBUG: All keys for angelstadium at start of debugPrintAllNeighbors:";
@@ -797,7 +796,6 @@ void StadiumGraph::debugPrintAllNeighbors() const {
             continue;
         }
         QByteArray stadiumHex = stadium.toUtf8().toHex();
-        qDebug() << "Neighbors for" << '"' + stadium + '"' << "(hex:" << stadiumHex << "):";
         const auto& neighbors = adjMatrix[stadium];
         for (auto nIt = neighbors.begin(); nIt != neighbors.end(); ++nIt) {
             QString neighbor = nIt.key();
@@ -944,7 +942,6 @@ bool StadiumGraph::loadMultipleCSVs(const QStringList& filenames) {
     try {
         qDebug() << "\n=== Loaded Data Summary ===";
         qDebug() << "Total stadiums:" << getStadiums().size();
-        qDebug() << "Sample connections:";
         for (const QString& stadium : getStadiums()) {
             if (adjMatrix.contains(stadium)) {
                 qDebug() << stadium << "has" << adjMatrix[stadium].size() << "connections";
@@ -1020,7 +1017,7 @@ void StadiumGraph::debugPrintUnreachableStadiums() const {
             }
         }
     }
-    qDebug() << "=== End Unreachable Stadiums Check ===\n";
+    qDebug() << "=== All Stadiums Are Reachable ===\n";
 }
 
 void StadiumGraph::debugPrintAllMissingPaths() const {
@@ -1043,4 +1040,4 @@ void StadiumGraph::debugPrintAllMissingPaths() const {
         qDebug() << "Total missing paths:" << missingCount;
     }
     qDebug() << "=== End Missing Paths Check ===\n";
-} 
+}
