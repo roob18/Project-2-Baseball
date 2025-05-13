@@ -6,10 +6,9 @@ int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
 
-    StadiumGraph* stadiumGraph = new StadiumGraph();
-    stadiumGraph->loadFromCSV("MLB Information.csv"); // Adjust path if needed
-
     MainWindow w;
+    StadiumGraph* stadiumGraph = new StadiumGraph();
+    stadiumGraph->loadFromDatabase(w.getDatabase());
     w.setStadiumGraph(stadiumGraph);
     w.show();
     return a.exec();

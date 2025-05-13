@@ -190,37 +190,51 @@ void TripPlanner::on_dfsButton_clicked()
         QMessageBox::warning(this, "Error", teamName + " not found in the graph (normalized: " + normalizedStart + ").");
         return;
     }
-    // Use greedy nearest neighbor for DFS as per assignment expectation
+    // Greedy nearest neighbor TSP with Dijkstra
     QVector<QString> allStadiums = stadiumGraph->getStadiums();
-    QVector<QString> stops;
+    QSet<QString> unvisited;
     for (const QString& s : allStadiums) {
-        if (s != normalizedStart) stops.append(s);
+        if (s != normalizedStart) unvisited.insert(s);
     }
     QVector<QString> order;
-    double distance = stadiumGraph->greedyTrip(normalizedStart, stops, order);
-    if (distance < 0 || order.isEmpty()) {
-        QMessageBox::warning(this, "Trip Error", "No path found from " + startStadium + ".");
-        ui->tripSummaryText->setText("No path found from " + startStadium + ".");
-        ui->totalDistanceLabel->setText("Total Distance: 0 miles");
-        return;
-    }
-    if (order.size() < stadiumGraph->getStadiums().size()) {
-        QMessageBox::warning(this, "Trip Warning", "Not all stadiums are reachable from " + startStadium + ".");
-    }
-    QString summary = "DFS Traversal (" + startStadium + "):\n";
-    for (const QString& stadium : order) {
-        if (stadium.isNull() || stadium.isEmpty()) {
-            QMessageBox::warning(this, "Trip Error", "Path contains an empty or invalid stadium name. Data may be corrupt.");
-            ui->tripSummaryText->setText("Path contains an empty or invalid stadium name. Data may be corrupt.");
+    order.append(normalizedStart);
+    double totalDistance = 0.0;
+    QString current = normalizedStart;
+    while (!unvisited.isEmpty()) {
+        QString nearest;
+        double minDist = std::numeric_limits<double>::infinity();
+        QVector<QString> bestPath;
+        for (const QString& stop : unvisited) {
+            QVector<QString> path;
+            double dist = stadiumGraph->dijkstra(current, stop, path);
+            if (dist >= 0 && dist < minDist) {
+                minDist = dist;
+                nearest = stop;
+                bestPath = path;
+            }
+        }
+        if (nearest.isEmpty() || minDist == std::numeric_limits<double>::infinity()) {
+            QMessageBox::warning(this, "Trip Error", "No path found to remaining stops from '" + current + "'.");
+            ui->tripSummaryText->setText("No path found to remaining stops from " + current + ".");
             ui->totalDistanceLabel->setText("Total Distance: 0 miles");
             return;
         }
-        summary += stadium + " -> ";
+        // Add the path (skip the first stadium to avoid duplicates)
+        for (int j = 1; j < bestPath.size(); ++j) {
+            order.append(bestPath[j]);
+        }
+        totalDistance += minDist;
+        current = nearest;
+        unvisited.remove(current);
     }
-    if (!order.isEmpty()) summary.chop(4);
-    summary += QString("\nTotal Distance: %1 miles").arg(distance, 0, 'f', 2);
+    QString summary = "DFS Traversal (" + startStadium + "):\n";
+    for (int i = 0; i < order.size(); ++i) {
+        summary += order[i];
+        if (i < order.size() - 1) summary += " -> ";
+    }
+    summary += QString("\n\nTotal Distance: %1 miles").arg(totalDistance, 0, 'f', 2);
     ui->tripSummaryText->setText(summary);
-    ui->totalDistanceLabel->setText(QString("Total Distance: %1 miles").arg(distance, 0, 'f', 2));
+    ui->totalDistanceLabel->setText(QString("Total Distance: %1 miles").arg(totalDistance, 0, 'f', 2));
     // Update Trip Stadiums list
     ui->tripStadiumsList->clear();
     for (const QString& stadium : order) {
@@ -566,22 +580,22 @@ void TripPlanner::on_dreamVacationButton_clicked() {
         QFuture<QPair<QVector<QString>, double>> future = QtConcurrent::run([=]() {
             QVector<QString> bestOrder;
             double minDistance = std::numeric_limits<double>::infinity();
-            QVector<QString> perm = stadiums;
-            std::sort(perm.begin(), perm.end());
-            do {
-                double dist = 0.0;
-                bool valid = true;
-                for (int i = 0; i < perm.size() - 1; ++i) {
-                    QVector<QString> segmentPath;
-                    double d = stadiumGraph->dijkstra(perm[i], perm[i+1], segmentPath);
-                    if (d < 0 || segmentPath.isEmpty()) { valid = false; break; }
-                    dist += d;
-                }
-                if (valid && dist < minDistance) {
-                    minDistance = dist;
-                    bestOrder = perm;
-                }
-            } while (std::next_permutation(perm.begin(), perm.end()));
+        QVector<QString> perm = stadiums;
+        std::sort(perm.begin(), perm.end());
+        do {
+            double dist = 0.0;
+            bool valid = true;
+            for (int i = 0; i < perm.size() - 1; ++i) {
+                QVector<QString> segmentPath;
+                double d = stadiumGraph->dijkstra(perm[i], perm[i+1], segmentPath);
+                if (d < 0 || segmentPath.isEmpty()) { valid = false; break; }
+                dist += d;
+            }
+            if (valid && dist < minDistance) {
+                minDistance = dist;
+                bestOrder = perm;
+            }
+        } while (std::next_permutation(perm.begin(), perm.end()));
             return QPair<QVector<QString>, double>(bestOrder, minDistance);
         });
         QFutureWatcher<QPair<QVector<QString>, double>>* watcher = new QFutureWatcher<QPair<QVector<QString>, double>>(this);
@@ -614,7 +628,7 @@ void TripPlanner::on_dreamVacationButton_clicked() {
                 }
                 if (i == 0) {
                     fullPath += segmentPath;
-                } else {
+    } else {
                     for (int j = 1; j < segmentPath.size(); ++j) {
                         fullPath.append(segmentPath[j]);
                     }
@@ -645,42 +659,42 @@ void TripPlanner::on_dreamVacationButton_clicked() {
         return;
     }
     // ... existing nearest neighbor heuristic code for >8 stadiums ...
-    QVector<QString> toVisit = stadiums;
-    QVector<QString> order;
-    QString current = toVisit.takeFirst();
-    order.append(current);
-    while (!toVisit.isEmpty()) {
-        double bestDist = std::numeric_limits<double>::infinity();
-        int bestIdx = -1;
-        QVector<QString> bestPath;
-        for (int i = 0; i < toVisit.size(); ++i) {
-            QVector<QString> segmentPath;
-            double d = stadiumGraph->dijkstra(current, toVisit[i], segmentPath);
-            if (d >= 0 && d < bestDist) {
-                bestDist = d;
-                bestIdx = i;
-                bestPath = segmentPath;
-            }
-        }
-        if (bestIdx == -1) {
-            QMessageBox::warning(this, "Trip Error", "No path between some stadiums in the selection.");
-            ui->tripSummaryText->setText("No path between some stadiums in the selection.");
-            ui->totalDistanceLabel->setText("Total Distance: 0 miles");
-            return;
-        }
-        current = toVisit.takeAt(bestIdx);
+        QVector<QString> toVisit = stadiums;
+        QVector<QString> order;
+        QString current = toVisit.takeFirst();
         order.append(current);
-    }
+        while (!toVisit.isEmpty()) {
+            double bestDist = std::numeric_limits<double>::infinity();
+            int bestIdx = -1;
+            QVector<QString> bestPath;
+            for (int i = 0; i < toVisit.size(); ++i) {
+                QVector<QString> segmentPath;
+                double d = stadiumGraph->dijkstra(current, toVisit[i], segmentPath);
+                if (d >= 0 && d < bestDist) {
+                    bestDist = d;
+                    bestIdx = i;
+                    bestPath = segmentPath;
+                }
+            }
+            if (bestIdx == -1) {
+                QMessageBox::warning(this, "Trip Error", "No path between some stadiums in the selection.");
+                ui->tripSummaryText->setText("No path between some stadiums in the selection.");
+                ui->totalDistanceLabel->setText("Total Distance: 0 miles");
+                return;
+            }
+            current = toVisit.takeAt(bestIdx);
+            order.append(current);
+        }
     QVector<QString> bestOrder = order;
     double minDistance = 0.0;
-    for (int i = 0; i < bestOrder.size() - 1; ++i) {
-        QVector<QString> segmentPath;
-        double d = stadiumGraph->dijkstra(bestOrder[i], bestOrder[i+1], segmentPath);
-        if (d < 0 || segmentPath.isEmpty()) {
-            minDistance = std::numeric_limits<double>::infinity();
-            break;
-        }
-        minDistance += d;
+        for (int i = 0; i < bestOrder.size() - 1; ++i) {
+            QVector<QString> segmentPath;
+            double d = stadiumGraph->dijkstra(bestOrder[i], bestOrder[i+1], segmentPath);
+            if (d < 0 || segmentPath.isEmpty()) {
+                minDistance = std::numeric_limits<double>::infinity();
+                break;
+            }
+            minDistance += d;
     }
     if (bestOrder.isEmpty() || minDistance == std::numeric_limits<double>::infinity()) {
         QMessageBox::warning(this, "Trip Error", "Could not find a valid optimized trip order.");

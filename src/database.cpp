@@ -10,8 +10,10 @@
 Database::Database(QObject *parent)
     : QObject(parent)
 {
+    // Use in-memory database so imported CSV data is only kept for the current run.
+    // When the program is closed or rebuilt, the database resets to the three preloaded teams.
     db = QSqlDatabase::addDatabase("QSQLITE");
-    db.setDatabaseName(":memory:"); // Use in-memory database for this application
+    db.setDatabaseName("baseball.db");
 }
 
 Database::~Database()
@@ -112,6 +114,16 @@ bool Database::createTables()
                    "PRIMARY KEY (team_name, item_name),"
                    "FOREIGN KEY (team_name) REFERENCES teams(team_name))")) {
         qDebug() << "Error creating souvenirs table:" << query.lastError().text();
+        return false;
+    }
+
+    // Create distances table
+    if (!query.exec("CREATE TABLE IF NOT EXISTS distances ("
+                   "from_team TEXT,"
+                   "to_team TEXT,"
+                   "distance INTEGER,"
+                   "PRIMARY KEY (from_team, to_team))")) {
+        qDebug() << "Error creating distances table:" << query.lastError().text();
         return false;
     }
 
@@ -263,7 +275,7 @@ QSqlQuery Database::getTeamsByDateOpened()
 QSqlQuery Database::getTeamsByCapacity()
 {
     QSqlQuery query(db);
-    if (!query.exec("SELECT stadium_name, team_name, capacity FROM teams ORDER BY capacity DESC")) {
+    if (!query.exec("SELECT stadium_name, team_name, capacity FROM teams ORDER BY capacity ASC")) {
         qDebug() << "Error getting teams by capacity:" << query.lastError().text();
     }
     return query;
@@ -659,4 +671,58 @@ bool Database::validateAdmin(const QString &username, const QString &password)
     // For now, use a simple hardcoded admin account
     // In a real application, this would check against a secure database
     return (username == "admin" && password == "admin123");
+}
+
+bool Database::importDistancesFromCSV(const QString &filename)
+{
+    QFile file(filename);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qDebug() << "Error opening distances file:" << file.errorString();
+        return false;
+    }
+    QTextStream in(&file);
+    // Skip header line
+    if (!in.atEnd()) {
+        in.readLine();
+    }
+    db.transaction();
+    while (!in.atEnd()) {
+        QString line = in.readLine();
+        QStringList fields = line.split(',');
+        if (fields.size() < 3) continue;
+        QString from = fields[0].trimmed();
+        QString to = fields[1].trimmed();
+        bool ok = false;
+        double distance = fields[2].trimmed().toDouble(&ok);
+        if (!ok || from.isEmpty() || to.isEmpty()) continue;
+        QSqlQuery query(db);
+        query.prepare("INSERT OR REPLACE INTO distances (from_team, to_team, distance) VALUES (:from, :to, :distance)");
+        query.bindValue(":from", from);
+        query.bindValue(":to", to);
+        query.bindValue(":distance", distance);
+        if (!query.exec()) {
+            qDebug() << "Error inserting distance:" << query.lastError().text();
+            db.rollback();
+            file.close();
+            return false;
+        }
+    }
+    db.commit();
+    file.close();
+    return true;
+}
+
+QVector<QPair<QString, QPair<QString, double>>> Database::getAllDistances() const
+{
+    QVector<QPair<QString, QPair<QString, double>>> distances;
+    QSqlQuery query(db);
+    if (query.exec("SELECT from_team, to_team, distance FROM distances")) {
+        while (query.next()) {
+            QString from = query.value(0).toString();
+            QString to = query.value(1).toString();
+            double dist = query.value(2).toDouble();
+            distances.append(qMakePair(from, qMakePair(to, dist)));
+        }
+    }
+    return distances;
 } 

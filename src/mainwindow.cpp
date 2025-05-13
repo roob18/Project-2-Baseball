@@ -65,6 +65,7 @@ void MainWindow::setupConnections()
     connect(ui->maxCenterFieldButton, &QPushButton::clicked, this, &MainWindow::displayGreatestCenterField);
     connect(ui->minCenterFieldButton, &QPushButton::clicked, this, &MainWindow::displaySmallestCenterField);
     connect(ui->viewSouvenirsButton, &QPushButton::clicked, this, &MainWindow::viewTeamSouvenirs);
+    connect(ui->resetDatabaseButton, &QPushButton::clicked, this, &MainWindow::on_resetDatabaseButton_clicked);
 }
 
 void MainWindow::clearResults()
@@ -277,4 +278,21 @@ void MainWindow::on_tripPlannerButton_clicked()
     TripPlanner* planner = new TripPlanner(db->getStadiumMap(), stadiumGraph, this);
     planner->exec();
     delete planner;
+}
+
+void MainWindow::on_resetDatabaseButton_clicked()
+{
+    // Confirm with the user
+    if (QMessageBox::question(this, "Reset Database", "Are you sure you want to reset the database? All imported data will be lost.", QMessageBox::Yes|QMessageBox::No) != QMessageBox::Yes)
+        return;
+
+    // Close and delete the database file
+    db->~Database();
+    QFile dbFile("baseball.db");
+    if (dbFile.exists()) {
+        dbFile.remove();
+    }
+
+    // Restart the application
+    qApp->exit(1000); // Use a custom exit code to indicate restart
 }

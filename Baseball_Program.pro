@@ -67,3 +67,6 @@ RCC_DIR = $$OUT_PWD/rcc
 
 # Force update of UI files
 system(touch $$PWD/src/*.ui)
+
+# Add a clean step to delete baseball.db on rebuild (or clean) so that the program resets to the three preloaded stadiums.
+# QMAKE_CLEAN += baseball.db

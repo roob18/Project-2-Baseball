@@ -24,6 +24,7 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
     void setStadiumGraph(StadiumGraph* graph) { stadiumGraph = graph; }
+    Database* getDatabase() { return db; }
 
 public slots:
     void refreshData();  // New slot to refresh window data
@@ -43,6 +44,7 @@ private slots:
     void viewTeamSouvenirs();
     void on_adminLoginButton_clicked();
     void on_tripPlannerButton_clicked();
+    void on_resetDatabaseButton_clicked();
 
 private:
     Ui::MainWindow *ui;

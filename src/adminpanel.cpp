@@ -63,10 +63,7 @@ void AdminPanel::setupUi()
     ui->souvenirTable->verticalHeader()->setVisible(false);
     ui->stadiumTable->verticalHeader()->setVisible(false);
 
-    // Add save changes button for stadiums
-    QPushButton* saveButton = new QPushButton("Save Changes", this);
-    ui->verticalLayout_2->addWidget(saveButton);
-    connect(saveButton, &QPushButton::clicked, this, &AdminPanel::saveStadiumChanges);
+    connect(ui->saveStadiumChangesButton, &QPushButton::clicked, this, &AdminPanel::on_saveStadiumChangesButton_clicked);
 }
 
 void AdminPanel::loadTeams()
@@ -140,62 +137,6 @@ void AdminPanel::on_importStadiumButton_clicked()
     } else {
         QMessageBox::critical(this, tr("Error"),
             tr("Failed to import stadium data. Please check the CSV format."));
-    }
-}
-
-void AdminPanel::saveStadiumChanges()
-{
-    db->database().transaction();
-    bool success = true;
-
-    for (int row = 0; row < ui->stadiumTable->rowCount(); ++row) {
-        QString teamName = ui->stadiumTable->item(row, 0)->text();
-        QString stadiumName = ui->stadiumTable->item(row, 1)->text();
-        
-        // Get capacity text and remove any commas
-        QString capacityText = ui->stadiumTable->item(row, 2)->text().remove(',');
-        bool ok;
-        int capacity = capacityText.toInt(&ok);
-        
-        if (!ok || capacity < 0) {
-            QMessageBox::critical(this, "Error", 
-                QString("Invalid capacity value for %1: %2\nPlease enter a valid number.")
-                .arg(teamName)
-                .arg(ui->stadiumTable->item(row, 2)->text()));
-            db->database().rollback();
-            return;
-        }
-
-        QString location = ui->stadiumTable->item(row, 3)->text();
-        QString surface = ui->stadiumTable->item(row, 4)->text();
-        QString league = ui->stadiumTable->item(row, 5)->text();
-        QString dateOpened = ui->stadiumTable->item(row, 6)->text();
-        QString centerFieldStr = ui->stadiumTable->item(row, 7)->text();
-        QString typology = ui->stadiumTable->item(row, 8)->text();
-        QString roof = ui->stadiumTable->item(row, 9)->text();
-
-        // Extract center field distance (assuming format "XXX feet (YY m)")
-        QRegularExpression feetRegex("(\\d+)\\s*(?:feet|$)");
-        auto feetMatch = feetRegex.match(centerFieldStr);
-        int centerField = 0;
-        if (feetMatch.hasMatch()) {
-            centerField = feetMatch.captured(1).toInt();
-        }
-
-        if (!db->insertTeam(teamName, stadiumName, capacity, location, surface,
-                           league, dateOpened, centerField, typology, roof)) {
-            success = false;
-            break;
-        }
-    }
-
-    if (success && db->database().commit()) {
-        QMessageBox::information(this, "Success", "Changes saved successfully!");
-        db->reloadStadiumData(); // Use the new public method
-        emit dataChanged(); // Emit signal when changes are saved successfully
-    } else {
-        db->database().rollback();
-        QMessageBox::critical(this, "Error", "Failed to save changes. Please try again.");
     }
 }
 
@@ -328,10 +269,16 @@ void AdminPanel::loadStadiumData()
 
 void AdminPanel::on_importDistancesButton_clicked() {
     qDebug() << "Starting importDistancesButton_clicked";
-    QStringList filenames = QFileDialog::getOpenFileNames(this, "Import Distances CSV", "", "CSV Files (*.csv)");
-    qDebug() << "Files selected:" << filenames;
-    if (filenames.isEmpty()) {
+    QString filename = QFileDialog::getOpenFileName(this, "Import Distances CSV", "", "CSV Files (*.csv)");
+    qDebug() << "File selected:" << filename;
+    if (filename.isEmpty()) {
         qDebug() << "No file selected, returning.";
+        return;
+    }
+
+    if (!db) {
+        qDebug() << "Database is null!";
+        QMessageBox::critical(this, "Error", "Database is not available.");
         return;
     }
 
@@ -341,13 +288,14 @@ void AdminPanel::on_importDistancesButton_clicked() {
         return;
     }
 
-    if (stadiumGraph->loadMultipleCSVs(filenames)) {
+    if (db->importDistancesFromCSV(filename)) {
+        stadiumGraph->loadFromDatabase(db);
         QMessageBox::information(this, "Import Successful", "Distances imported successfully.");
         // Debug: Print unreachable stadiums and missing paths
         stadiumGraph->debugPrintUnreachableStadiums();
         stadiumGraph->debugPrintAllMissingPaths();
     } else {
-        QMessageBox::critical(this, "Import Error", "Failed to import distances from CSV(s).");
+        QMessageBox::critical(this, "Import Error", "Failed to import distances from CSV.");
     }
 }
 
@@ -364,4 +312,47 @@ void AdminPanel::on_addStadiumButton_clicked()
     //     loadStadiums(); // (Stub) Reload stadiumCombo and stadiumTable.
     // }
     QMessageBox::information(this, "Add Stadium", "Add Stadium Dialog (stub) – Insert a new stadium (and edit its contents) here.");
+}
+
+void AdminPanel::on_saveStadiumChangesButton_clicked()
+{
+    db->database().transaction();
+    bool success = true;
+    for (int row = 0; row < ui->stadiumTable->rowCount(); ++row) {
+        QString teamName = ui->stadiumTable->item(row, 0)->text();
+        QString stadiumName = ui->stadiumTable->item(row, 1)->text();
+        QString capacityText = ui->stadiumTable->item(row, 2)->text().remove(',');
+        bool ok;
+        int capacity = capacityText.toInt(&ok);
+        if (!ok || capacity < 0) {
+            QMessageBox::critical(this, "Error", QString("Invalid capacity value for %1: %2\nPlease enter a valid number.").arg(teamName).arg(ui->stadiumTable->item(row, 2)->text()));
+            db->database().rollback();
+            return;
+        }
+        QString location = ui->stadiumTable->item(row, 3)->text();
+        QString surface = ui->stadiumTable->item(row, 4)->text();
+        QString league = ui->stadiumTable->item(row, 5)->text();
+        QString dateOpened = ui->stadiumTable->item(row, 6)->text();
+        QString centerFieldStr = ui->stadiumTable->item(row, 7)->text();
+        QString typology = ui->stadiumTable->item(row, 8)->text();
+        QString roof = ui->stadiumTable->item(row, 9)->text();
+        QRegularExpression feetRegex("(\\d+)\\s*(?:feet|$)");
+        auto feetMatch = feetRegex.match(centerFieldStr);
+        int centerField = 0;
+        if (feetMatch.hasMatch()) {
+            centerField = feetMatch.captured(1).toInt();
+        }
+        if (!db->insertTeam(teamName, stadiumName, capacity, location, surface, league, dateOpened, centerField, typology, roof)) {
+            success = false;
+            break;
+        }
+    }
+    if (success && db->database().commit()) {
+        db->reloadStadiumData();
+        emit dataChanged();
+        QMessageBox::information(this, "Success", "Changes have been made successfully!");
+    } else {
+        db->database().rollback();
+        QMessageBox::critical(this, "Error", "Failed to save changes. Please try again.");
+    }
 } 

@@ -5,7 +5,10 @@
 #include <QDebug>
 #include <QRegularExpression>
 #include <QtGlobal>
+#include <algorithm>
+#include <queue>
 #include "stadiumgraph.h"
+#include "database.h"
 
 StadiumGraph::StadiumGraph() {}
 
@@ -44,22 +47,52 @@ void StadiumGraph::addStadium(const QString& name) {
 void StadiumGraph::addEdge(const QString& from, const QString& to, double distance) {
     QString nFrom = normalizeStadiumName(from);
     QString nTo = normalizeStadiumName(to);
+
+    // Strict validation of inputs
     if (nFrom.isEmpty() || nTo.isEmpty()) {
         qDebug() << "addEdge: Invalid stadium names - from:" << from << "to:" << to;
+        qDebug() << "  Normalized from:" << nFrom << "(hex):" << nFrom.toUtf8().toHex();
+        qDebug() << "  Normalized to:" << nTo << "(hex):" << nTo.toUtf8().toHex();
         return;
     }
+
     if (distance <= 0) {
         qDebug() << "addEdge: Invalid distance:" << distance << "for" << from << "to" << to;
         return;
     }
-    addStadium(nFrom);
-    addStadium(nTo);
-    if (!adjMatrix.contains(nFrom) || !adjMatrix.contains(nTo)) {
-        qDebug() << "addEdge: Stadium not found in graph - from:" << nFrom << "to:" << nTo;
+
+    // Additional validation to prevent empty keys
+    if (nFrom.trimmed().isEmpty() || nTo.trimmed().isEmpty()) {
+        qDebug() << "addEdge: Empty or whitespace-only stadium names after normalization";
+        qDebug() << "  From:" << nFrom << "(hex):" << nFrom.toUtf8().toHex();
+        qDebug() << "  To:" << nTo << "(hex):" << nTo.toUtf8().toHex();
         return;
     }
+
+    // Add stadiums if they don't exist
+    if (!adjMatrix.contains(nFrom)) {
+        adjMatrix[nFrom] = QMap<QString, double>();
+    }
+    if (!adjMatrix.contains(nTo)) {
+        adjMatrix[nTo] = QMap<QString, double>();
+    }
+
+    // Validate the stadiums exist in the matrix
+    if (!adjMatrix.contains(nFrom) || !adjMatrix.contains(nTo)) {
+        qDebug() << "addEdge: Failed to add stadiums to matrix - from:" << nFrom << "to:" << nTo;
+        return;
+    }
+
+    // Add the edges
     adjMatrix[nFrom][nTo] = distance;
     adjMatrix[nTo][nFrom] = distance;
+
+    // Verify the edges were added correctly
+    if (!adjMatrix[nFrom].contains(nTo) || !adjMatrix[nTo].contains(nFrom)) {
+        qDebug() << "addEdge: Failed to add edges - from:" << nFrom << "to:" << nTo;
+        return;
+    }
+
     qDebug() << "Added edge:" << nFrom << "<->" << nTo << ":" << distance;
 }
 
@@ -412,187 +445,129 @@ double StadiumGraph::minimumSpanningTree(QVector<QPair<QString, QString>>& mstEd
     return totalWeight;
 }
 
+void StadiumGraph::dfsUtil(const QString& current, QSet<QString>& visited, QVector<QString>& order, double& totalDistance, const QString& prev) const {
+    visited.insert(current);
+    order.append(current);
+    if (!prev.isEmpty()) {
+        totalDistance += getDistance(prev, current);
+    }
+    
+    // Get all unvisited neighbors with their distances
+    QVector<QPair<QString, double>> unvisitedNeighbors;
+    for (auto it = adjMatrix[current].begin(); it != adjMatrix[current].end(); ++it) {
+        QString neighbor = it.key();
+        if (!visited.contains(neighbor)) {
+            unvisitedNeighbors.append(qMakePair(neighbor, it.value()));
+        }
+    }
+    
+    // Sort neighbors by distance (shortest first)
+    std::sort(unvisitedNeighbors.begin(), unvisitedNeighbors.end(),
+              [](const QPair<QString, double>& a, const QPair<QString, double>& b) {
+                  return a.second < b.second;
+              });
+    
+    // Visit neighbors in order of increasing distance
+    for (const auto& neighbor : unvisitedNeighbors) {
+        dfsUtil(neighbor.first, visited, order, totalDistance, current);
+    }
+}
+
 double StadiumGraph::dfs(const QString& start, QVector<QString>& order) const {
-    const_cast<StadiumGraph*>(this)->cleanAdjacencyMatrix();
     order.clear();
     QString nStart = normalizeStadiumName(start);
-    if (nStart.isEmpty()) {
-        qDebug() << "DFS: Invalid start stadium name:" << start;
-        return -1.0;
-    }
-    if (!adjMatrix.contains(nStart)) {
-        qDebug() << "DFS: Start stadium not found in graph:" << nStart;
-        return -1.0;
-    }
-
+    if (nStart.isEmpty() || !adjMatrix.contains(nStart)) return -1.0;
     QSet<QString> visited;
     double totalDistance = 0.0;
-    int recursionDepth = 0;
-    const int MAX_DEPTH = adjMatrix.size() * 2;
-    bool success = true;
-    QString prevStadium;
-
-    std::function<void(const QString&)> dfsVisit = [&](const QString& stadium) {
-        if (!success) return;
-        if (recursionDepth > MAX_DEPTH) {
-            qDebug() << "DFS: Max recursion depth reached at" << stadium;
-            success = false;
-            return;
+    dfsUtil(nStart, visited, order, totalDistance, "");
+    if (order.size() == adjMatrix.size()) {
+        // Debug output: print order and distances
+        qDebug() << "DFS Order:";
+        for (int i = 0; i < order.size(); ++i) {
+            qDebug() << i+1 << ":" << order[i];
         }
-        if (stadium.trimmed().isEmpty()) {
-            qDebug() << "DFS: Skipping empty stadium name in lambda.";
-            return;
-        }
-        if (!adjMatrix.contains(stadium)) {
-            qDebug() << "DFS: Stadium not in graph in lambda:" << stadium;
-            return;
-        }
-        if (visited.contains(stadium)) {
-            qDebug() << "DFS: Already visited" << stadium;
-            return;
-        }
-        if (!prevStadium.isEmpty() && prevStadium != stadium) {
-            double dist = getDistance(prevStadium, stadium);
-            if (dist > 0) totalDistance += dist;
-        }
-        visited.insert(stadium);
-        order.append(stadium);
-        recursionDepth++;
-        QString lastPrev = prevStadium;
-        prevStadium = stadium;
-        // --- Sort neighbors by distance ascending ---
-        QVector<QPair<QString, double>> neighborList;
-        for (auto nIt = adjMatrix[stadium].begin(); nIt != adjMatrix[stadium].end(); ++nIt) {
-            QString neighbor = nIt.key();
-            double distance = nIt.value();
-            if (neighbor.trimmed().isEmpty()) continue;
-            if (!adjMatrix.contains(neighbor)) continue;
-            if (neighbor == stadium) continue;
-            if (visited.contains(neighbor)) continue;
-            if (distance <= 0.0) continue;
-            neighborList.append(qMakePair(neighbor, distance));
-        }
-        std::sort(neighborList.begin(), neighborList.end(), [](const QPair<QString, double>& a, const QPair<QString, double>& b) {
-            return a.second < b.second;
-        });
-        // Visit neighbors in sorted order
-        for (const auto& pair : neighborList) {
-            dfsVisit(pair.first);
-            if (!success) return;
-        }
-        prevStadium = lastPrev;
-        recursionDepth--;
-    };
-
-    prevStadium = "";
-    dfsVisit(nStart);
-    qDebug() << "DFS: Total stadiums visited:" << visited.size();
-    return success ? totalDistance : -1.0;
+        qDebug() << "DFS Step Distances:";
+        double runningTotal = 0.0;
+        for (int i = 1; i < order.size(); ++i) {
+            double dist = getDistance(order[i-1], order[i]);
+            runningTotal += dist;
+            qDebug() << order[i-1] << "->" << order[i] << ":" << dist << ", running total:" << runningTotal;
+                }
+        qDebug() << "DFS Total Distance:" << totalDistance;
+        return totalDistance;
+    } else {
+        return -1.0;
+    }
 }
 
 double StadiumGraph::bfs(const QString& start, QVector<QString>& order) const {
+    // Force cleaning before BFS
     const_cast<StadiumGraph*>(this)->cleanAdjacencyMatrix();
+    
     order.clear();
     QString nStart = normalizeStadiumName(start);
-    if (nStart.isEmpty()) {
-        qDebug() << "BFS: Invalid start stadium name:" << start;
-        return -1.0;
-    }
-    if (!adjMatrix.contains(nStart)) {
-        qDebug() << "BFS: Start stadium not found in graph:" << nStart;
+    if (nStart.isEmpty() || !adjMatrix.contains(nStart)) {
+        qDebug() << "BFS: Invalid start stadium:" << start;
         return -1.0;
     }
 
     QSet<QString> visited;
     QQueue<QString> queue;
     double totalDistance = 0.0;
-    bool success = true;
+    visited.insert(nStart);
+    queue.enqueue(nStart);
+    order.append(nStart);
+    int maxIterations = adjMatrix.size() * 10;
+    int iterations = 0;
 
-    try {
-        visited.insert(nStart);
-        queue.enqueue(nStart);
-        order.append(nStart);
-        qDebug() << "BFS: Starting traversal from:" << nStart;
-
-        while (!queue.isEmpty() && success) {
+    while (!queue.isEmpty()) {
+        if (++iterations > maxIterations) {
+            break;
+        }
         QString current = queue.dequeue();
-            qDebug() << "BFS: Processing stadium:" << current;
-            
-            if (!adjMatrix.contains(current)) {
-                qDebug() << "BFS: Current stadium not in graph:" << current;
+        if (!adjMatrix.contains(current)) {
+            continue;
+        }
+        const QMap<QString, double>& currentNeighbors = adjMatrix[current];
+        QVector<QPair<QString, double>> unvisitedNeighbors;
+        for (auto it = currentNeighbors.begin(); it != currentNeighbors.end(); ++it) {
+            QString neighbor = it.key();
+            if (neighbor.trimmed().isEmpty()) {
                 continue;
             }
-
-            const QMap<QString, double>& neighbors = adjMatrix[current];
-            qDebug() << "BFS: Neighbor map size for" << current << ":" << neighbors.size();
-            qDebug() << "BFS: All neighbor keys for" << current << ":" << neighbors.keys();
-
-            int neighborIdx = 0;
-            try {
-                for (auto nIt = neighbors.begin(); nIt != neighbors.end(); ++nIt, ++neighborIdx) {
-                    QString neighbor = nIt.key();
-                    double distance = nIt.value();
-                    qDebug() << "BFS: Neighbor #" << neighborIdx << "key:" << neighbor << "value:" << distance;
-
-                    if (neighbor.trimmed().isEmpty()) {
-                        qDebug() << "BFS: Skipping empty neighbor for" << current << "at index" << neighborIdx;
-                        continue;
-                    }
-                    if (!adjMatrix.contains(neighbor)) {
-                        qDebug() << "BFS: Neighbor not in graph:" << neighbor << "at index" << neighborIdx;
-                        continue;
-                    }
-                    if (neighbor == current) {
-                        qDebug() << "BFS: Skipping self-loop for" << current;
-                        continue;
-                    }
-                    if (visited.contains(neighbor)) {
-                        qDebug() << "BFS: Already visited neighbor" << neighbor;
-                        continue;
-                    }
-                    if (distance <= 0.0) {
-                        qDebug() << "BFS: Invalid distance to neighbor" << neighbor << ":" << distance;
-                        continue;
-                    }
-
-                    visited.insert(neighbor);
-                    queue.enqueue(neighbor);
-                    order.append(neighbor);
-                    totalDistance += distance;
-                    qDebug() << "BFS: Added to queue:" << neighbor << "Distance:" << distance;
-                }
-            } catch (const std::exception& e) {
-                qDebug() << "BFS: Exception in neighbor loop for" << current << ":" << e.what();
-                success = false;
-                break;
-            } catch (...) {
-                qDebug() << "BFS: Unknown exception in neighbor loop for" << current;
-                success = false;
-                break;
+            if (!adjMatrix.contains(neighbor)) {
+                continue;
             }
-        }
-
-        qDebug() << "BFS: Total stadiums visited:" << visited.size();
-        if (visited.size() != adjMatrix.size()) {
-            qDebug() << "BFS: Not all stadiums were visited. Visited:" << visited.size() 
-                     << "Total:" << adjMatrix.size();
-            QSet<QString> allStadiums(adjMatrix.keys().begin(), adjMatrix.keys().end());
-            QSet<QString> unvisited = allStadiums - visited;
-            qDebug() << "BFS: Unvisited stadiums:";
-            for (const QString& stadium : unvisited) {
-                qDebug() << "-" << stadium;
+            if (visited.contains(neighbor)) {
+                continue;
             }
+            double distance = it.value();
+            if (distance <= 0) {
+                continue;
+            }
+            unvisitedNeighbors.append(qMakePair(neighbor, distance));
         }
-
-    } catch (const std::exception& e) {
-        qDebug() << "BFS: Exception in main traversal:" << e.what();
-        success = false;
-    } catch (...) {
-        qDebug() << "BFS: Unknown exception in main traversal";
-        success = false;
+        std::sort(unvisitedNeighbors.begin(), unvisitedNeighbors.end(),
+                  [](const QPair<QString, double>& a, const QPair<QString, double>& b) {
+                      return a.second < b.second;
+                  });
+        for (const auto& neighbor : unvisitedNeighbors) {
+            const QString& nextStadium = neighbor.first;
+            double distance = neighbor.second;
+            if (nextStadium.trimmed().isEmpty() || !adjMatrix.contains(nextStadium)) {
+                continue;
+            }
+            visited.insert(nextStadium);
+            queue.enqueue(nextStadium);
+            order.append(nextStadium);
+            totalDistance += distance;
+        }
     }
-
-    return success ? totalDistance : -1.0;
+    if (order.size() == adjMatrix.size()) {
+        return totalDistance;
+    } else {
+        return -1.0;
+    }
 }
 
 double StadiumGraph::greedyTrip(const QString& start, const QVector<QString>& stops, QVector<QString>& order) const {
@@ -601,8 +576,8 @@ double StadiumGraph::greedyTrip(const QString& start, const QVector<QString>& st
         QString nStart = normalizeStadiumName(start);
         if (!adjMatrix.contains(nStart)) {
             qDebug() << "Start stadium not found:" << start << "(normalized:" << nStart << ")";
-            return -1.0;
-        }
+        return -1.0;
+    }
         if (stops.isEmpty()) {
             qDebug() << "No stops provided for trip";
             return -1.0;
@@ -616,46 +591,46 @@ double StadiumGraph::greedyTrip(const QString& start, const QVector<QString>& st
                 continue; // skip missing stadiums
             }
             normalizedStops.append(nStop);
-        }
+    }
         QSet<QString> unvisited(normalizedStops.begin(), normalizedStops.end());
-        order.clear();
+    order.clear();
         order.append(nStart);
-        double totalDistance = 0.0;
+    double totalDistance = 0.0;
         QString current = nStart;
         QVector<QString> skipped;
-        while (!unvisited.isEmpty()) {
-            // Find nearest unvisited stadium
-            QString nearest;
-            double minDist = std::numeric_limits<double>::infinity();
-            for (const QString& stop : unvisited) {
+    while (!unvisited.isEmpty()) {
+        // Find nearest unvisited stadium
+        QString nearest;
+        double minDist = std::numeric_limits<double>::infinity();
+        for (const QString& stop : unvisited) {
                 try {
-                    double dist = getDistance(current, stop);
-                    if (dist >= 0 && dist < minDist) {
-                        minDist = dist;
-                        nearest = stop;
+            double dist = getDistance(current, stop);
+            if (dist >= 0 && dist < minDist) {
+                minDist = dist;
+                nearest = stop;
                     }
                 } catch (...) {
                     continue;
-                }
             }
-            if (minDist == std::numeric_limits<double>::infinity()) {
+        }
+        if (minDist == std::numeric_limits<double>::infinity()) {
                 // No reachable stadiums left from current
                 // Remove all remaining unvisited stadiums as skipped
                 for (const QString& s : unvisited) skipped.append(s);
                 break;
-            }
-            // Move to nearest stadium
-            current = nearest;
-            unvisited.remove(current);
-            order.append(current);
-            totalDistance += minDist;
-            qDebug() << "Added to trip:" << current << "Distance:" << minDist;
         }
+        // Move to nearest stadium
+        current = nearest;
+        unvisited.remove(current);
+        order.append(current);
+        totalDistance += minDist;
+            qDebug() << "Added to trip:" << current << "Distance:" << minDist;
+    }
         if (!skipped.isEmpty()) {
             qDebug() << "Skipped unreachable stadiums in greedyTrip:" << skipped;
         }
         qDebug() << "Trip planning complete. Total distance:" << totalDistance;
-        return totalDistance;
+    return totalDistance;
     } catch (const std::exception& e) {
         qDebug() << "Error in greedyTrip:" << e.what();
         return -1.0;
@@ -805,44 +780,155 @@ bool StadiumGraph::validateGraphIntegrity() const {
     return valid;
 }
 
+void StadiumGraph::rebuildStadiumConnections(const QString& stadium) {
+    if (!adjMatrix.contains(stadium)) {
+        return;
+    }
+
+    QMap<QString, double> validNeighbors;
+    const auto& currentNeighbors = adjMatrix[stadium];
+    
+    // Only keep neighbors that are non-empty and exist in the graph
+    for (auto it = currentNeighbors.begin(); it != currentNeighbors.end(); ++it) {
+        QString neighbor = it.key();
+        double distance = it.value();
+        
+        // Skip if neighbor is empty or doesn't exist in graph
+        if (neighbor.trimmed().isEmpty() || !adjMatrix.contains(neighbor)) {
+            qDebug() << "Rebuilding connections for" << stadium << ": Removing invalid neighbor" 
+                     << neighbor << "(hex):" << neighbor.toUtf8().toHex();
+            continue;
+        }
+        
+        // Skip if distance is invalid
+        if (distance <= 0) {
+            qDebug() << "Rebuilding connections for" << stadium << ": Removing neighbor with invalid distance" 
+                     << neighbor << "distance:" << distance;
+            continue;
+        }
+        
+        validNeighbors[neighbor] = distance;
+    }
+    
+    // Replace the stadium's connections with only valid ones
+    adjMatrix[stadium] = validNeighbors;
+    qDebug() << "Rebuilt connections for" << stadium << ":" << validNeighbors.size() << "valid neighbors";
+}
+
 void StadiumGraph::cleanAdjacencyMatrix() {
+    qDebug() << "\n=== Starting deep adjacency matrix cleaning ===";
     QList<QString> emptyStadiums;
-    // First pass: identify empty stadiums and collect empty neighbors
+    int removedNeighbors = 0;
+    int removedStadiums = 0;
+
+    // First pass: identify and remove empty stadiums
     for (auto it = adjMatrix.begin(); it != adjMatrix.end(); ++it) {
         QString stadium = it.key();
         if (stadium.trimmed().isEmpty()) {
             emptyStadiums.append(stadium);
+            qDebug() << "Found empty stadium name (hex):" << stadium.toUtf8().toHex();
             continue;
         }
-        QList<QString> toRemove;
-        for (auto nIt = it.value().begin(); nIt != it.value().end(); ++nIt) {
-            if (nIt.key().trimmed().isEmpty()) {
-                toRemove.append(nIt.key());
-            }
-        }
-        // Remove empty neighbors
-        for (const QString& badKey : toRemove) {
-            adjMatrix[stadium].remove(badKey);
-            qDebug() << "Removed empty neighbor for" << stadium;
-        }
     }
-    // Second pass: remove empty stadiums
+
+    // Remove empty stadiums
     for (const QString& emptyStadium : emptyStadiums) {
         adjMatrix.remove(emptyStadium);
+        removedStadiums++;
         qDebug() << "Removed empty stadium:" << emptyStadium;
+    }
+
+    // Second pass: deep clean of all neighbors
+    QMap<QString, QMap<QString, double>> cleanMatrix;
+    for (auto it = adjMatrix.begin(); it != adjMatrix.end(); ++it) {
+        QString stadium = it.key();
+        QMap<QString, double> cleanNeighbors;
+        
+        // Validate each neighbor
+        for (auto nIt = it.value().begin(); nIt != it.value().end(); ++nIt) {
+            QString neighbor = nIt.key();
+            double distance = nIt.value();
+            
+            // Skip if neighbor is empty or doesn't exist in graph
+            if (neighbor.trimmed().isEmpty()) {
+                qDebug() << "Found empty neighbor for" << stadium << "(hex):" << neighbor.toUtf8().toHex();
+                removedNeighbors++;
+                continue;
+            }
+            
+            // Skip if neighbor doesn't exist in graph
+            if (!adjMatrix.contains(neighbor)) {
+                qDebug() << "Found neighbor not in graph:" << neighbor << "for stadium:" << stadium;
+                removedNeighbors++;
+                continue;
+            }
+            
+            // Skip if distance is invalid
+            if (distance <= 0) {
+                qDebug() << "Found invalid distance:" << distance << "for" << stadium << "->" << neighbor;
+                removedNeighbors++;
+                continue;
+            }
+            
+            cleanNeighbors[neighbor] = distance;
+        }
+        
+        // Only add stadium if it has valid neighbors
+        if (!cleanNeighbors.isEmpty()) {
+            cleanMatrix[stadium] = cleanNeighbors;
+        } else {
+            qDebug() << "Removing stadium with no valid neighbors:" << stadium;
+            removedStadiums++;
+        }
+    }
+
+    // Replace the entire adjacency matrix with the cleaned version
+    adjMatrix = cleanMatrix;
+
+    // Final validation pass
+    qDebug() << "\n=== Final validation pass ===";
+    for (const QString& stadium : adjMatrix.keys()) {
+        qDebug() << "Validating stadium:" << stadium;
+        qDebug() << "  Number of neighbors:" << adjMatrix[stadium].size();
+        for (const QString& neighbor : adjMatrix[stadium].keys()) {
+            if (neighbor.trimmed().isEmpty()) {
+                qCritical() << "FATAL: Found empty neighbor after cleaning! Stadium:" << stadium;
+                adjMatrix[stadium].remove(neighbor);
+                removedNeighbors++;
+            }
+            qDebug() << "  Neighbor:" << neighbor << "Distance:" << adjMatrix[stadium][neighbor];
+        }
+    }
+
+    qDebug() << "\n=== Cleaning complete ===";
+    qDebug() << "Removed" << removedStadiums << "empty stadiums";
+    qDebug() << "Removed" << removedNeighbors << "invalid neighbors";
+    qDebug() << "Remaining stadiums:" << adjMatrix.size();
+    
+    // Print all neighbors for target field specifically
+    if (adjMatrix.contains("target field")) {
+        qDebug() << "\nNeighbors for target field after cleaning:";
+        const auto& neighbors = adjMatrix["target field"];
+        for (const QString& neighbor : neighbors.keys()) {
+            qDebug() << "  Neighbor:" << neighbor << "Distance:" << neighbors[neighbor];
+        }
     }
 }
 
 bool StadiumGraph::loadFromCSV(const QString& filename, bool /*clearExisting*/) {
     if (filename.isEmpty()) {
+        qDebug() << "loadFromCSV: Empty filename";
         return false;
     }
+
     QFile file(filename);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qDebug() << "loadFromCSV: Could not open file:" << filename;
         return false;
     }
+
     try {
-    QTextStream in(&file);
+        QTextStream in(&file);
         // Skip header if it exists
         if (!in.atEnd()) {
             QString header = in.readLine();
@@ -851,46 +937,83 @@ bool StadiumGraph::loadFromCSV(const QString& filename, bool /*clearExisting*/) 
                 in.seek(0);
             }
         }
+
         int lineCount = 0;
         int successCount = 0;
-    while (!in.atEnd()) {
+        int errorCount = 0;
+
+        while (!in.atEnd()) {
             try {
                 lineCount++;
                 QString line = in.readLine().trimmed();
                 if (line.isEmpty()) {
                     continue;
                 }
+
                 QStringList parts = line.split(',');
                 if (parts.size() < 3) {
+                    qDebug() << "loadFromCSV: Line" << lineCount << "has insufficient parts:" << line;
+                    errorCount++;
                     continue;
                 }
-            QString from = parts[0].trimmed();
-            QString to = parts[1].trimmed();
+
+                QString from = parts[0].trimmed();
+                QString to = parts[1].trimmed();
                 QString distStr = parts[2].trimmed();
+
+                // Strict validation of inputs
                 if (from.isEmpty() || to.isEmpty() || distStr.isEmpty()) {
+                    qDebug() << "loadFromCSV: Line" << lineCount << "has empty fields:" << line;
+                    errorCount++;
                     continue;
                 }
-            bool ok = false;
+
+                bool ok = false;
                 double distance = distStr.toDouble(&ok);
                 if (!ok || distance <= 0) {
+                    qDebug() << "loadFromCSV: Line" << lineCount << "has invalid distance:" << distStr;
+                    errorCount++;
                     continue;
                 }
+
                 QString nFrom = normalizeStadiumName(from);
                 QString nTo = normalizeStadiumName(to);
+
                 if (nFrom.isEmpty() || nTo.isEmpty()) {
+                    qDebug() << "loadFromCSV: Line" << lineCount << "normalized to empty names:";
+                    qDebug() << "  From:" << from << "->" << nFrom << "(hex):" << nFrom.toUtf8().toHex();
+                    qDebug() << "  To:" << to << "->" << nTo << "(hex):" << nTo.toUtf8().toHex();
+                    errorCount++;
                     continue;
                 }
+
+                // Additional validation to prevent empty keys
+                if (nFrom.trimmed().isEmpty() || nTo.trimmed().isEmpty()) {
+                    qDebug() << "loadFromCSV: Line" << lineCount << "has empty names after normalization:";
+                    qDebug() << "  From:" << nFrom << "(hex):" << nFrom.toUtf8().toHex();
+                    qDebug() << "  To:" << nTo << "(hex):" << nTo.toUtf8().toHex();
+                    errorCount++;
+                    continue;
+                }
+
                 addEdge(from, to, distance);
-                addEdge(to, from, distance); // Ensure bidirectional edge
                 successCount++;
+
             } catch (...) {
+                qDebug() << "loadFromCSV: Exception processing line" << lineCount;
+                errorCount++;
                 continue;
+            }
         }
-    }
-    file.close();
+
+        file.close();
+        qDebug() << "loadFromCSV: Processed" << lineCount << "lines:"
+                 << successCount << "successful," << errorCount << "errors";
         return successCount > 0;
+
     } catch (...) {
         file.close();
+        qDebug() << "loadFromCSV: Exception reading file:" << filename;
         return false;
     }
 }
@@ -1020,4 +1143,56 @@ void StadiumGraph::debugPrintAllMissingPaths() const {
         qDebug() << "Total missing paths:" << missingCount;
     }
     qDebug() << "=== End Missing Paths Check ===\n";
+}
+
+bool StadiumGraph::loadFromDatabase(class Database* db) {
+    if (!db) return false;
+    clear();
+    auto distances = db->getAllDistances();
+    for (const auto& entry : distances) {
+        const QString& from = entry.first;
+        const QString& to = entry.second.first;
+        double dist = entry.second.second;
+        addEdge(from, to, dist);
+    }
+    return true;
+}
+
+double StadiumGraph::tspNearestNeighbor(const QString& start, QVector<QString>& order) const {
+    QVector<QString> allStadiums = getStadiums();
+    QString nStart = normalizeStadiumName(start);
+    QSet<QString> unvisited(allStadiums.begin(), allStadiums.end());
+    unvisited.remove(nStart);
+
+    order.clear();
+    order.append(nStart);
+    QString current = nStart;
+    double totalDistance = 0.0;
+
+    while (!unvisited.isEmpty()) {
+        double minDist = std::numeric_limits<double>::infinity();
+        QString nearest;
+        QVector<QString> bestPath;
+        for (const QString& candidate : unvisited) {
+            QVector<QString> segmentPath;
+            double dist = dijkstra(current, candidate, segmentPath);
+            if (dist >= 0 && dist < minDist) {
+                minDist = dist;
+                nearest = candidate;
+                bestPath = segmentPath;
+            }
+        }
+        if (nearest.isEmpty() || minDist == std::numeric_limits<double>::infinity()) {
+            // No path found to remaining stadiums
+            return -1.0;
+        }
+        // Add the path (skip the first stadium to avoid duplicates)
+        for (int j = 1; j < bestPath.size(); ++j) {
+            order.append(bestPath[j]);
+        }
+        totalDistance += minDist;
+        current = nearest;
+        unvisited.remove(current);
+    }
+    return totalDistance;
 }

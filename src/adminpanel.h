@@ -23,16 +23,16 @@ public:
 signals:
     void dataChanged();  // New signal to notify when data is changed
 
-private slots:
+public slots:
     void on_importStadiumButton_clicked();
     void on_addSouvenirButton_clicked();
     void on_editSouvenirButton_clicked();
     void on_deleteSouvenirButton_clicked();
     void on_teamComboBox_currentIndexChanged(const QString &teamName);
     void on_closeButton_clicked();
-    void saveStadiumChanges();
     void on_importDistancesButton_clicked();
     void on_addStadiumButton_clicked();
+    void on_saveStadiumChangesButton_clicked();
 
 private:
     Ui::AdminPanel *ui;

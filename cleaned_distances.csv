@@ -8,7 +8,7 @@ Busch Stadium,Kauffman Stadium,235
 Chase Field,Coors Field,580
 Chase Field,Globe Life Park in Arlington,870
 Chase Field,Minute Maid Park,1115
-Chase Field,Oakland–Alameda County Coliseum ,650
+Chase Field,Oakland–Alameda County Coliseum,650
 Chase Field,Petco Park,300
 Citi Field,Fenway Park,195
 Citi Field,Yankee Stadium,50
@@ -23,7 +23,7 @@ Coors Field,Chase Field,580
 Coors Field,Petco Park,830
 Dodger Stadium,Angel Stadium,50
 Dodger Stadium,Target Field,1500
-Dodger Stadium,Oakland–Alameda County Coliseum ,340
+Dodger Stadium,Oakland–Alameda County Coliseum,340
 Fenway Park,Citi Field,195
 Fenway Park,Marlins Park,1255
 Fenway Park,Rogers Centre,430
@@ -66,7 +66,7 @@ Oakland–Alameda County Coliseum,Oracle Park,50
 Oakland–Alameda County Coliseum,Dodger Stadium,340
 Oakland–Alameda County Coliseum,Chase Field,650
 Oracle Park,Safeco Field,680
-Oracle Park,Oakland–Alameda County Coliseum ,50
+Oracle Park,Oakland–Alameda County Coliseum,50
 Oriole Park at Camden Yards,Nationals Park,50
 Oriole Park at Camden Yards,Citizens Bank Park,90
 Petco Park,Coors Field,830
@@ -91,7 +91,6 @@ Safeco Field,Oracle Park,680
 SunTrust Park,Great American Ball Park,375
 SunTrust Park,Nationals Park,560
 SunTrust Park,Marlins Park,600
-SunTrust Park,Miller Park,740
 SunTrust Park,Globe Life Park in Arlington,740
 Target Field,Dodger Stadium,1500
 Target Field,Busch Stadium,465

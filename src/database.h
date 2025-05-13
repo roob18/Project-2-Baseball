@@ -59,6 +59,9 @@ public:
 
     void refreshStadiumLists();
 
+    bool importDistancesFromCSV(const QString &filename);
+    QVector<QPair<QString, QPair<QString, double>>> getAllDistances() const;
+
 private:
     QSqlDatabase db;
     HashMap<QString, StadiumInfo> stadiumMap;

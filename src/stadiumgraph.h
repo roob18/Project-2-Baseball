@@ -5,6 +5,7 @@
 #include <QVector>
 #include <QMap>
 #include <QPair>
+#include <QSet>
 
 class StadiumGraph {
 public:
@@ -23,6 +24,9 @@ public:
     double dfs(const QString& start, QVector<QString>& order) const;
     double bfs(const QString& start, QVector<QString>& order) const;
     double greedyTrip(const QString& start, const QVector<QString>& stops, QVector<QString>& order) const;
+
+    // TSP Nearest Neighbor using Dijkstra between all stadiums
+    double tspNearestNeighbor(const QString& start, QVector<QString>& order) const;
 
     bool loadFromCSV(const QString& filename, bool clearExisting = false);
     bool loadMultipleCSVs(const QStringList& filenames);
@@ -43,8 +47,13 @@ public:
     void cleanAdjacencyMatrix();
     void removeEmptyKeysAndNeighbors();
 
+    bool loadFromDatabase(class Database* db);
+
+    void rebuildStadiumConnections(const QString& stadium);
+
 private:
     QMap<QString, QMap<QString, double>> adjMatrix; // adjacency matrix
+    void dfsUtil(const QString& current, QSet<QString>& visited, QVector<QString>& order, double& totalDistance, const QString& prev) const;
 };
 
 #endif // STADIUMGRAPH_H 
