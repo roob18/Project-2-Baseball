@@ -1,4 +1,4 @@
-QT       += core gui sql widgets
+QT       += core gui sql widgets concurrent
 
 TARGET = Baseball_Program
 TEMPLATE = app

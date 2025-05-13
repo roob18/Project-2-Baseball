@@ -32,6 +32,7 @@ private slots:
     void on_closeButton_clicked();
     void saveStadiumChanges();
     void on_importDistancesButton_clicked();
+    void on_addStadiumButton_clicked();
 
 private:
     Ui::AdminPanel *ui;

@@ -349,4 +349,19 @@ void AdminPanel::on_importDistancesButton_clicked() {
     } else {
         QMessageBox::critical(this, "Import Error", "Failed to import distances from CSV(s).");
     }
+}
+
+void AdminPanel::on_addStadiumButton_clicked()
+{
+    // (Stub) Launch a dialog (AddStadiumDialog) to add a new stadium.
+    // (Assume that AddStadiumDialog is a new dialog class that you will create later.)
+    // For example:
+    // AddStadiumDialog addDialog(db, stadiumGraph, this);
+    // if (addDialog.exec() == QDialog::Accepted) {
+    //     // (Stub) Insert the new stadium (e.g. addDialog.getStadiumName()) into the database (and stadiumGraph) and update stadiumCombo (and stadiumTable).
+    //     db->insertStadium(addDialog.getStadiumName(), /* other stadium details */);
+    //     stadiumGraph->addStadium(addDialog.getStadiumName());
+    //     loadStadiums(); // (Stub) Reload stadiumCombo and stadiumTable.
+    // }
+    QMessageBox::information(this, "Add Stadium", "Add Stadium Dialog (stub) – Insert a new stadium (and edit its contents) here.");
 } 

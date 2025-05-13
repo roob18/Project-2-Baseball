@@ -121,14 +121,14 @@ bool Database::createTables()
 void Database::insertInitialData()
 {
     // Insert initial teams
-    insertTeam("Boston Red Sox", "Fenway Park", 37755, "Boston, MA", "Grass", 
-               "American", "1912-04-20", 390, "Jewel Box", "Open");
+    insertTeam("Boston Red Sox", "Fenway Park", 37731, "Boston, MA", "Grass", 
+               "American", "1912", 420, "Jewel Box", "Open");
                
-    insertTeam("New York Yankees", "Yankee Stadium", 47309, "Bronx, NY", "Grass",
-               "American", "2009-04-16", 408, "Retro-Modern", "Open");
+    insertTeam("New York Yankees", "Yankee Stadium", 47422, "Bronx, NY", "Grass",
+               "American", "2009", 408, "Retro-Modern", "Open");
                
     insertTeam("Los Angeles Dodgers", "Dodger Stadium", 56000, "Los Angeles, CA", "Grass",
-               "National", "1962-04-10", 395, "Modern", "Open");
+               "National", "1962", 400, "Modern", "Open");
 
     // Add default souvenirs for each team
     QStringList teams = {"Boston Red Sox", "New York Yankees", "Los Angeles Dodgers"};

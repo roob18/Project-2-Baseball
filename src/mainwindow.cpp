@@ -171,7 +171,42 @@ void MainWindow::displayTeamsByCapacity()
 {
     QSqlQuery query = db->getTeamsByCapacity();
     QStringList headers = {"Stadium", "Team Name", "Capacity"};
-    displayQueryResults(query, headers);
+    clearResults();
+    ui->resultsTable->setColumnCount(headers.size());
+    ui->resultsTable->setHorizontalHeaderLabels(headers);
+    ui->resultsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+
+    int row = 0;
+    int totalCapacity = 0;
+    while (query.next()) {
+        ui->resultsTable->insertRow(row);
+        for (int col = 0; col < headers.size(); ++col) {
+            QTableWidgetItem *item = new QTableWidgetItem(query.value(col).toString());
+            item->setFlags(item->flags() & ~Qt::ItemIsEditable);
+            ui->resultsTable->setItem(row, col, item);
+        }
+        // Sum the capacity (column 2)
+        bool ok = false;
+        int cap = query.value(2).toInt(&ok);
+        if (ok) totalCapacity += cap;
+        row++;
+    }
+    // Add summary row
+    ui->resultsTable->insertRow(row);
+    QTableWidgetItem *totalLabel1 = new QTableWidgetItem("Total");
+    totalLabel1->setFlags(totalLabel1->flags() & ~Qt::ItemIsEditable);
+    QTableWidgetItem *totalLabel2 = new QTableWidgetItem("");
+    totalLabel2->setFlags(totalLabel2->flags() & ~Qt::ItemIsEditable);
+    QTableWidgetItem *totalValue = new QTableWidgetItem(QString::number(totalCapacity));
+    totalValue->setFlags(totalValue->flags() & ~Qt::ItemIsEditable);
+    ui->resultsTable->setItem(row, 0, totalLabel1);
+    ui->resultsTable->setItem(row, 1, totalLabel2);
+    ui->resultsTable->setItem(row, 2, totalValue);
+
+    ui->resultsTable->resizeColumnsToContents();
+    ui->resultsTable->setDragDropMode(QAbstractItemView::NoDragDrop);
+    ui->resultsTable->verticalHeader()->setSectionsMovable(false);
+    ui->resultsTable->horizontalHeader()->setSectionsMovable(false);
 }
 
 void MainWindow::displayGreatestCenterField()

@@ -430,9 +430,9 @@ double StadiumGraph::dfs(const QString& start, QVector<QString>& order) const {
     int recursionDepth = 0;
     const int MAX_DEPTH = adjMatrix.size() * 2;
     bool success = true;
+    QString prevStadium;
 
     std::function<void(const QString&)> dfsVisit = [&](const QString& stadium) {
-        qDebug() << "DFS lambda entered for stadium:" << stadium;
         if (!success) return;
         if (recursionDepth > MAX_DEPTH) {
             qDebug() << "DFS: Max recursion depth reached at" << stadium;
@@ -451,57 +451,43 @@ double StadiumGraph::dfs(const QString& start, QVector<QString>& order) const {
             qDebug() << "DFS: Already visited" << stadium;
             return;
         }
+        if (!prevStadium.isEmpty() && prevStadium != stadium) {
+            double dist = getDistance(prevStadium, stadium);
+            if (dist > 0) totalDistance += dist;
+        }
         visited.insert(stadium);
         order.append(stadium);
         recursionDepth++;
-        qDebug() << "DFS visiting:" << stadium;
-        const QMap<QString, double>& neighbors = adjMatrix[stadium];
-        qDebug() << "DFS: Neighbor map size for" << stadium << ":" << neighbors.size();
-        qDebug() << "DFS: All neighbor keys for" << stadium << ":" << neighbors.keys();
-        int neighborIdx = 0;
-        try {
-            for (auto nIt = neighbors.begin(); nIt != neighbors.end(); ++nIt, ++neighborIdx) {
-                QString neighbor = nIt.key();
-                double distance = nIt.value();
-                qDebug() << "DFS: Neighbor #" << neighborIdx << "key:" << neighbor << "value:" << distance;
-                if (neighbor.trimmed().isEmpty()) {
-                    qDebug() << "DFS: Skipping empty neighbor for" << stadium << "at index" << neighborIdx;
-                    continue;
-                }
-                if (!adjMatrix.contains(neighbor)) {
-                    qDebug() << "DFS: Neighbor not in graph:" << neighbor << "at index" << neighborIdx;
-                    continue;
-                }
-                if (neighbor == stadium) {
-                    qDebug() << "DFS: Skipping self-loop for" << stadium;
-                    continue;
-                }
-                if (visited.contains(neighbor)) {
-                    qDebug() << "DFS: Already visited neighbor" << neighbor;
-                    continue;
-                }
-                if (distance <= 0.0) {
-                    qDebug() << "DFS: Invalid distance to neighbor" << neighbor << ":" << distance;
-                    continue;
-                }
-                dfsVisit(neighbor);
-                if (!success) return;
-            }
-        } catch (const std::exception& e) {
-            qDebug() << "DFS: Exception in neighbor loop for" << stadium << ":" << e.what();
-            success = false;
-            return;
-        } catch (...) {
-            qDebug() << "DFS: Unknown exception in neighbor loop for" << stadium;
-            success = false;
-            return;
+        QString lastPrev = prevStadium;
+        prevStadium = stadium;
+        // --- Sort neighbors by distance ascending ---
+        QVector<QPair<QString, double>> neighborList;
+        for (auto nIt = adjMatrix[stadium].begin(); nIt != adjMatrix[stadium].end(); ++nIt) {
+            QString neighbor = nIt.key();
+            double distance = nIt.value();
+            if (neighbor.trimmed().isEmpty()) continue;
+            if (!adjMatrix.contains(neighbor)) continue;
+            if (neighbor == stadium) continue;
+            if (visited.contains(neighbor)) continue;
+            if (distance <= 0.0) continue;
+            neighborList.append(qMakePair(neighbor, distance));
         }
+        std::sort(neighborList.begin(), neighborList.end(), [](const QPair<QString, double>& a, const QPair<QString, double>& b) {
+            return a.second < b.second;
+        });
+        // Visit neighbors in sorted order
+        for (const auto& pair : neighborList) {
+            dfsVisit(pair.first);
+            if (!success) return;
+        }
+        prevStadium = lastPrev;
         recursionDepth--;
     };
 
+    prevStadium = "";
     dfsVisit(nStart);
     qDebug() << "DFS: Total stadiums visited:" << visited.size();
-    return success ? static_cast<double>(visited.size()) : -1.0;
+    return success ? totalDistance : -1.0;
 }
 
 double StadiumGraph::bfs(const QString& start, QVector<QString>& order) const {
@@ -615,68 +601,61 @@ double StadiumGraph::greedyTrip(const QString& start, const QVector<QString>& st
         QString nStart = normalizeStadiumName(start);
         if (!adjMatrix.contains(nStart)) {
             qDebug() << "Start stadium not found:" << start << "(normalized:" << nStart << ")";
-        return -1.0;
-    }
-
+            return -1.0;
+        }
         if (stops.isEmpty()) {
             qDebug() << "No stops provided for trip";
             return -1.0;
         }
-
         // Verify all stops exist in the graph
         QVector<QString> normalizedStops;
         for (const QString& stop : stops) {
             QString nStop = normalizeStadiumName(stop);
             if (!adjMatrix.contains(nStop)) {
                 qDebug() << "Stop stadium not found:" << stop << "(normalized:" << nStop << ")";
-                return -1.0;
+                continue; // skip missing stadiums
             }
             normalizedStops.append(nStop);
-    }
-
+        }
         QSet<QString> unvisited(normalizedStops.begin(), normalizedStops.end());
-    order.clear();
+        order.clear();
         order.append(nStart);
-    double totalDistance = 0.0;
+        double totalDistance = 0.0;
         QString current = nStart;
-
-    while (!unvisited.isEmpty()) {
-        // Find nearest unvisited stadium
-        QString nearest;
-        double minDist = std::numeric_limits<double>::infinity();
-
-        for (const QString& stop : unvisited) {
+        QVector<QString> skipped;
+        while (!unvisited.isEmpty()) {
+            // Find nearest unvisited stadium
+            QString nearest;
+            double minDist = std::numeric_limits<double>::infinity();
+            for (const QString& stop : unvisited) {
                 try {
-            double dist = getDistance(current, stop);
-            if (dist >= 0 && dist < minDist) {
-                minDist = dist;
-                nearest = stop;
+                    double dist = getDistance(current, stop);
+                    if (dist >= 0 && dist < minDist) {
+                        minDist = dist;
+                        nearest = stop;
                     }
-                } catch (const std::exception& e) {
-                    qDebug() << "Error calculating distance from" << current << "to" << stop << ":" << e.what();
-                    continue;
                 } catch (...) {
-                    qDebug() << "Unknown error calculating distance from" << current << "to" << stop;
                     continue;
+                }
             }
-        }
-
-        if (minDist == std::numeric_limits<double>::infinity()) {
-                qDebug() << "No path found to remaining stops from" << current;
-            return -1.0;  // No path to remaining stops
-        }
-
-        // Move to nearest stadium
-        current = nearest;
-        unvisited.remove(current);
-        order.append(current);
-        totalDistance += minDist;
-            
+            if (minDist == std::numeric_limits<double>::infinity()) {
+                // No reachable stadiums left from current
+                // Remove all remaining unvisited stadiums as skipped
+                for (const QString& s : unvisited) skipped.append(s);
+                break;
+            }
+            // Move to nearest stadium
+            current = nearest;
+            unvisited.remove(current);
+            order.append(current);
+            totalDistance += minDist;
             qDebug() << "Added to trip:" << current << "Distance:" << minDist;
-    }
-
+        }
+        if (!skipped.isEmpty()) {
+            qDebug() << "Skipped unreachable stadiums in greedyTrip:" << skipped;
+        }
         qDebug() << "Trip planning complete. Total distance:" << totalDistance;
-    return totalDistance;
+        return totalDistance;
     } catch (const std::exception& e) {
         qDebug() << "Error in greedyTrip:" << e.what();
         return -1.0;
@@ -902,6 +881,7 @@ bool StadiumGraph::loadFromCSV(const QString& filename, bool /*clearExisting*/) 
                     continue;
                 }
                 addEdge(from, to, distance);
+                addEdge(to, from, distance); // Ensure bidirectional edge
                 successCount++;
             } catch (...) {
                 continue;
