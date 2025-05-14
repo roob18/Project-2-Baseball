@@ -48,6 +48,7 @@ private slots:
     void on_planTripButton_clicked();
     void updateAlgorithmUIVisibility();
     void on_removeSouvenirButton_clicked();
+    void on_referenceTripButton_clicked();
 
 private:
     Ui::TripPlanner *ui;

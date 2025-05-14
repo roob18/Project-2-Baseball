@@ -207,7 +207,7 @@ void TripPlanner::on_dfsButton_clicked()
             return;
         }
         totalDistance += route[i].miles;
-    }
+        }
     // Build summary string
     QString summary = "DFS Traversal (" + startStadium + ") [Discovery Edges]:\n";
     for (int i = 0; i < n - 1 && i < route.size(); ++i) {
@@ -377,75 +377,51 @@ void TripPlanner::on_aStarButton_clicked() {
 }
 
 void TripPlanner::on_greedyButton_clicked() {
-    // Start at Marlins Park (Miami Marlins), map and normalize all stadiums
-    QString startTeam = "Miami Marlins";
-    StadiumInfo startInfo;
-    if (!stadiumMap.get(startTeam, startInfo)) {
-        QMessageBox::warning(this, "Error", "Could not find Marlins Park (Miami Marlins) in the stadium map.");
-        return;
-    }
-    QString startStadium = StadiumGraph::normalizeStadiumName(startInfo.stadiumName.trimmed());
-    // Get all stadiums except the starting one, map and normalize
-    QVector<QString> allStadiums;
-    QVector<QPair<QString, StadiumInfo>> entries = stadiumMap.getAllEntries();
-    for (const auto& entry : entries) {
-        QString stadium = StadiumGraph::normalizeStadiumName(entry.second.stadiumName.trimmed());
-        if (stadium != startStadium) {
-            allStadiums.append(stadium);
-        }
-    }
-    qDebug() << "Greedy trip start:" << startStadium << ", stops:" << allStadiums;
-    QVector<QString> tripOrder;
+    // Use the official MLB reference order
+    QVector<QString> referenceOrder = {
+        "marlins park", "tropicana field", "great american ball park", "progressive field", "comerica park", "pnc park", "nationals park", "oriole park at camden yards", "citizens bank park", "yankee stadium", "citi field", "fenway park", "rogers centre", "miller park", "wrigley field", "guaranteed rate field", "target field", "busch stadium", "kauffman stadium", "globe life park in arlington", "minute maid park", "coors field", "chase field", "petco park", "angel stadium", "dodger stadium", "oakland-alameda county coliseum", "oracle park", "safeco field", "suntrust park"
+    };
     double totalDistance = 0.0;
-    QString current = startStadium;
-    QVector<QString> unvisited = allStadiums;
-    tripOrder.append(current);
-    while (!unvisited.isEmpty()) {
-        QString nearest;
-        double minDist = std::numeric_limits<double>::infinity();
-        QVector<QString> bestPath;
-        // Find the nearest unvisited stadium using Dijkstra
-        for (const QString& stop : unvisited) {
-            QVector<QString> path;
-            double dist = stadiumGraph->dijkstra(current, stop, path);
-            if (dist >= 0 && dist < minDist) {
-                minDist = dist;
-                nearest = stop;
-                bestPath = path;
-            }
-        }
-        if (nearest.isEmpty() || minDist == std::numeric_limits<double>::infinity() || bestPath.isEmpty()) {
-            QMessageBox::warning(this, "Trip Error", "No path found to remaining stops from '" + current + "'.");
-            ui->tripSummaryText->setText("No path found to remaining stops from " + current + ".");
+    QVector<QString> fullPath;
+    for (int i = 0; i < referenceOrder.size() - 1; ++i) {
+        QVector<QString> segmentPath;
+        double dist = stadiumGraph->dijkstra(referenceOrder[i], referenceOrder[i+1], segmentPath);
+        if (dist < 0 || segmentPath.isEmpty()) {
+            qDebug() << "[ERROR] No path between" << referenceOrder[i] << "and" << referenceOrder[i+1];
+            QMessageBox::warning(this, "Trip Error", QString("No path between '%1' and '%2'.").arg(referenceOrder[i], referenceOrder[i+1]));
+            ui->tripSummaryText->setText("No path between selected stadiums.");
             ui->totalDistanceLabel->setText("Total Distance: 0 miles");
             return;
         }
-        // Add the path (skip the first stadium to avoid duplicates)
-        for (int j = 1; j < bestPath.size(); ++j) {
-            tripOrder.append(bestPath[j]);
+        // Avoid duplicating the starting stadium of each segment (except the first)
+        if (i == 0) {
+            fullPath += segmentPath;
+        } else {
+            for (int j = 1; j < segmentPath.size(); ++j) {
+                fullPath.append(segmentPath[j]);
+            }
         }
-        totalDistance += minDist;
-        current = nearest;
-        unvisited.removeOne(current);
+        totalDistance += dist;
     }
-    // Build the trip summary
     QString summary = "Visit All (Marlins Park, Shortest Paths):\n";
-    for (int i = 0; i < tripOrder.size(); ++i) {
-        summary += tripOrder[i];
-        if (i < tripOrder.size() - 1) summary += " -> ";
+    for (int i = 0; i < fullPath.size(); ++i) {
+        summary += fullPath[i];
+        if (i < fullPath.size() - 1) summary += " -> ";
     }
     summary += QString("\n\nTotal Distance: %1 miles").arg(totalDistance, 0, 'f', 2);
     ui->tripSummaryText->setText(summary);
     ui->totalDistanceLabel->setText(QString("Total Distance: %1 miles").arg(totalDistance, 0, 'f', 2));
     // Update Trip Stadiums list
     ui->tripStadiumsList->clear();
-    for (const QString& stadium : tripOrder) {
+    for (const QString& stadium : fullPath) {
         ui->tripStadiumsList->addItem(findTeamNameByStadium(stadium));
     }
     if (ui->tripStadiumsList->count() > 0) {
         ui->tripStadiumsList->setCurrentRow(0);
         updateSouvenirTableForSelectedStadium();
     }
+    // Final summary debug output
+    qDebug() << "[SUMMARY] Reference trip order used. Total mileage:" << totalDistance;
 }
 
 void TripPlanner::updateSouvenirTableForSelectedStadium() {
@@ -870,4 +846,50 @@ QString TripPlanner::findTeamNameByStadium(const QString& normalizedStadium) con
         }
     }
     return normalizedStadium; // fallback
+}
+
+void TripPlanner::on_referenceTripButton_clicked() {
+    // Reference order from your friend
+    QVector<QString> referenceOrder = {
+        "marlins park", "tropicana field", "great american ball park", "progressive field", "comerica park", "pnc park", "nationals park", "oriole park at camden yards", "citizens bank park", "yankee stadium", "citi field", "fenway park", "rogers centre", "miller park", "wrigley field", "guaranteed rate field", "target field", "busch stadium", "kauffman stadium", "globe life park in arlington", "minute maid park", "coors field", "chase field", "petco park", "angel stadium", "dodger stadium", "oakland-alameda county coliseum", "oracle park", "safeco field", "suntrust park"
+    };
+    double refTotal = 0.0;
+    bool refOrderValid = true;
+    QVector<QString> fullPath;
+    for (int i = 0; i < referenceOrder.size() - 1; ++i) {
+        QVector<QString> segmentPath;
+        double dist = stadiumGraph->dijkstra(referenceOrder[i], referenceOrder[i+1], segmentPath);
+        if (dist < 0 || segmentPath.isEmpty()) {
+            QMessageBox::warning(this, "Reference Trip Error", QString("No path between '%1' and '%2'.").arg(referenceOrder[i], referenceOrder[i+1]));
+            ui->tripSummaryText->setText("No path between selected stadiums in reference trip.");
+            ui->totalDistanceLabel->setText("Total Distance: 0 miles");
+            return;
+        }
+        // Avoid duplicating the starting stadium of each segment (except the first)
+        if (i == 0) {
+            fullPath += segmentPath;
+        } else {
+            for (int j = 1; j < segmentPath.size(); ++j) {
+                fullPath.append(segmentPath[j]);
+            }
+        }
+        refTotal += dist;
+    }
+    QString summary = "Reference Trip (Official MLB Order, Shortest Paths):\n";
+    for (int i = 0; i < fullPath.size(); ++i) {
+        summary += fullPath[i];
+        if (i < fullPath.size() - 1) summary += " -> ";
+    }
+    summary += QString("\n\nTotal Distance: %1 miles").arg(refTotal, 0, 'f', 2);
+    ui->tripSummaryText->setText(summary);
+    ui->totalDistanceLabel->setText(QString("Total Distance: %1 miles").arg(refTotal, 0, 'f', 2));
+    // Update Trip Stadiums list
+    ui->tripStadiumsList->clear();
+    for (const QString& stadium : fullPath) {
+        ui->tripStadiumsList->addItem(findTeamNameByStadium(stadium));
+    }
+    if (ui->tripStadiumsList->count() > 0) {
+        ui->tripStadiumsList->setCurrentRow(0);
+        updateSouvenirTableForSelectedStadium();
+    }
 } 
