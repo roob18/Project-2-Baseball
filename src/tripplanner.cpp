@@ -190,55 +190,44 @@ void TripPlanner::on_dfsButton_clicked()
         QMessageBox::warning(this, "Error", teamName + " not found in the graph (normalized: " + normalizedStart + ").");
         return;
     }
-    // Greedy nearest neighbor TSP with Dijkstra
-    QVector<QString> allStadiums = stadiumGraph->getStadiums();
-    QSet<QString> unvisited;
-    for (const QString& s : allStadiums) {
-        if (s != normalizedStart) unvisited.insert(s);
+    // Use new DFS route and mileage
+    QVector<RouteEdge> route;
+    stadiumGraph->dfsRoute(normalizedStart, route);
+    qDebug() << "DFS route size:" << route.size();
+    if (route.isEmpty()) {
+        QMessageBox::warning(this, "DFS Error", "DFS route is empty. Check if the graph is connected and the start stadium is valid.");
+        return;
     }
-    QVector<QString> order;
-    order.append(normalizedStart);
+    int n = stadiumGraph->getStadiums().size();
     double totalDistance = 0.0;
-    QString current = normalizedStart;
-    while (!unvisited.isEmpty()) {
-        QString nearest;
-        double minDist = std::numeric_limits<double>::infinity();
-        QVector<QString> bestPath;
-        for (const QString& stop : unvisited) {
-            QVector<QString> path;
-            double dist = stadiumGraph->dijkstra(current, stop, path);
-            if (dist >= 0 && dist < minDist) {
-                minDist = dist;
-                nearest = stop;
-                bestPath = path;
-            }
-        }
-        if (nearest.isEmpty() || minDist == std::numeric_limits<double>::infinity()) {
-            QMessageBox::warning(this, "Trip Error", "No path found to remaining stops from '" + current + "'.");
-            ui->tripSummaryText->setText("No path found to remaining stops from " + current + ".");
-            ui->totalDistanceLabel->setText("Total Distance: 0 miles");
+    for (int i = 0; i < n - 1 && i < route.size(); ++i) {
+        qDebug() << "DFS edge:" << route[i].from << "->" << route[i].to << ", miles:" << route[i].miles;
+        if (route[i].from.isEmpty() || route[i].to.isEmpty()) {
+            QMessageBox::warning(this, "DFS Error", "DFS route contains an empty stadium name. Data may be corrupt.");
             return;
         }
-        // Add the path (skip the first stadium to avoid duplicates)
-        for (int j = 1; j < bestPath.size(); ++j) {
-            order.append(bestPath[j]);
-        }
-        totalDistance += minDist;
-        current = nearest;
-        unvisited.remove(current);
+        totalDistance += route[i].miles;
     }
-    QString summary = "DFS Traversal (" + startStadium + "):\n";
-    for (int i = 0; i < order.size(); ++i) {
-        summary += order[i];
-        if (i < order.size() - 1) summary += " -> ";
+    // Build summary string
+    QString summary = "DFS Traversal (" + startStadium + ") [Discovery Edges]:\n";
+    for (int i = 0; i < n - 1 && i < route.size(); ++i) {
+        summary += route[i].from + " -> " + route[i].to + " (" + QString::number(route[i].miles, 'f', 2) + ")\n";
     }
-    summary += QString("\n\nTotal Distance: %1 miles").arg(totalDistance, 0, 'f', 2);
+    summary += QString("\nTotal Discovery Edge Distance: %1 miles").arg(totalDistance, 0, 'f', 2);
     ui->tripSummaryText->setText(summary);
     ui->totalDistanceLabel->setText(QString("Total Distance: %1 miles").arg(totalDistance, 0, 'f', 2));
-    // Update Trip Stadiums list
+    // Update Trip Stadiums list (show the order of discovery edges)
     ui->tripStadiumsList->clear();
-    for (const QString& stadium : order) {
-        ui->tripStadiumsList->addItem(findTeamNameByStadium(stadium));
+    QSet<QString> added;
+    for (int i = 0; i < n - 1 && i < route.size(); ++i) {
+        if (!added.contains(route[i].from)) {
+            ui->tripStadiumsList->addItem(findTeamNameByStadium(route[i].from));
+            added.insert(route[i].from);
+        }
+        if (!added.contains(route[i].to)) {
+            ui->tripStadiumsList->addItem(findTeamNameByStadium(route[i].to));
+            added.insert(route[i].to);
+        }
     }
     if (ui->tripStadiumsList->count() > 0) {
         ui->tripStadiumsList->setCurrentRow(0);
@@ -412,20 +401,21 @@ void TripPlanner::on_greedyButton_clicked() {
     QVector<QString> unvisited = allStadiums;
     tripOrder.append(current);
     while (!unvisited.isEmpty()) {
-        double bestDist = std::numeric_limits<double>::infinity();
-        int bestIdx = -1;
+        QString nearest;
+        double minDist = std::numeric_limits<double>::infinity();
         QVector<QString> bestPath;
-        for (int i = 0; i < unvisited.size(); ++i) {
+        // Find the nearest unvisited stadium using Dijkstra
+        for (const QString& stop : unvisited) {
             QVector<QString> path;
-            double dist = stadiumGraph->dijkstra(current, unvisited[i], path);
-            if (dist >= 0 && dist < bestDist) {
-                bestDist = dist;
-                bestIdx = i;
+            double dist = stadiumGraph->dijkstra(current, stop, path);
+            if (dist >= 0 && dist < minDist) {
+                minDist = dist;
+                nearest = stop;
                 bestPath = path;
             }
         }
-        if (bestIdx == -1) {
-            QMessageBox::warning(this, "Trip Error", QString("No path found to remaining stops from '%1'.").arg(current));
+        if (nearest.isEmpty() || minDist == std::numeric_limits<double>::infinity() || bestPath.isEmpty()) {
+            QMessageBox::warning(this, "Trip Error", "No path found to remaining stops from '" + current + "'.");
             ui->tripSummaryText->setText("No path found to remaining stops from " + current + ".");
             ui->totalDistanceLabel->setText("Total Distance: 0 miles");
             return;
@@ -434,9 +424,11 @@ void TripPlanner::on_greedyButton_clicked() {
         for (int j = 1; j < bestPath.size(); ++j) {
             tripOrder.append(bestPath[j]);
         }
-        totalDistance += bestDist;
-        current = unvisited.takeAt(bestIdx);
+        totalDistance += minDist;
+        current = nearest;
+        unvisited.removeOne(current);
     }
+    // Build the trip summary
     QString summary = "Visit All (Marlins Park, Shortest Paths):\n";
     for (int i = 0; i < tripOrder.size(); ++i) {
         summary += tripOrder[i];

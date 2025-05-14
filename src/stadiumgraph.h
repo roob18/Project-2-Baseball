@@ -6,6 +6,14 @@
 #include <QMap>
 #include <QPair>
 #include <QSet>
+#include <functional>
+
+// RouteEdge struct for DFS traversal and other algorithms
+struct RouteEdge {
+    QString from;
+    QString to;
+    double miles;
+};
 
 class StadiumGraph {
 public:
@@ -24,6 +32,10 @@ public:
     double dfs(const QString& start, QVector<QString>& order) const;
     double bfs(const QString& start, QVector<QString>& order) const;
     double greedyTrip(const QString& start, const QVector<QString>& stops, QVector<QString>& order) const;
+
+    // DFS route and mileage (discovery edges only)
+    void dfsRoute(const QString& start, QVector<RouteEdge>& route) const;
+    double dfsDiscoveryMileage(const QString& start) const;
 
     // TSP Nearest Neighbor using Dijkstra between all stadiums
     double tspNearestNeighbor(const QString& start, QVector<QString>& order) const;

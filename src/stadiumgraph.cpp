@@ -7,6 +7,7 @@
 #include <QtGlobal>
 #include <algorithm>
 #include <queue>
+#include <functional>
 #include "stadiumgraph.h"
 #include "database.h"
 
@@ -1195,4 +1196,67 @@ double StadiumGraph::tspNearestNeighbor(const QString& start, QVector<QString>& 
         unvisited.remove(current);
     }
     return totalDistance;
+}
+
+// DFS traversal that collects discovery edges in order
+void StadiumGraph::dfsRoute(const QString& start, QVector<RouteEdge>& route) const {
+    // Clean adjacency matrix before DFS
+    const_cast<StadiumGraph*>(this)->cleanAdjacencyMatrix();
+    route.clear();
+    QString nStart = normalizeStadiumName(start);
+    if (nStart.isEmpty() || !adjMatrix.contains(nStart)) {
+        qWarning() << "DFS ABORT: Start stadium invalid or not in graph:" << nStart;
+        return;
+    }
+    if (adjMatrix[nStart].isEmpty()) {
+        qWarning() << "DFS ABORT: Start stadium has no neighbors:" << nStart;
+        return;
+    }
+    QSet<QString> visited;
+    int maxDepth = 100;
+    std::function<void(const QString&, int)> dfs = [&](const QString& u, int depth) {
+        visited.insert(u);
+        if (adjMatrix[u].contains("")) {
+            qWarning() << "Removing empty neighbor from" << u << "before DFS loop";
+            adjMatrix[u].remove("");
+        }
+        QMap<QString, double> localNeighbors = adjMatrix[u];
+        QVector<QPair<QString, double>> neighbors;
+        for (auto it = localNeighbors.begin(); it != localNeighbors.end(); ++it) {
+            if (it.key().trimmed().isEmpty() || it.value() <= 0) {
+                qWarning() << "Skipping invalid neighbor in DFS:" << it.key() << "Distance:" << it.value();
+                continue;
+            }
+            neighbors.append(qMakePair(it.key(), it.value()));
+        }
+        std::sort(neighbors.begin(), neighbors.end(), [](const QPair<QString, double>& a, const QPair<QString, double>& b) {
+            return a.second < b.second;
+        });
+        if (depth > maxDepth) {
+            qWarning() << "DFS ABORTED: Recursion depth exceeded at node" << u << ", depth:" << depth;
+            return;
+        }
+        for (const auto& neighbor : neighbors) {
+            const QString& v = neighbor.first;
+            double w = neighbor.second;
+            if (!visited.contains(v)) {
+                route.append({u, v, w}); // Discovery edge
+                dfs(v, depth + 1);
+            }
+        }
+    };
+    dfs(nStart, 0);
+}
+
+// Function to sum the mileage of the first n-1 discovery edges
+// (DFS spanning tree mileage)
+double StadiumGraph::dfsDiscoveryMileage(const QString& start) const {
+    QVector<RouteEdge> route;
+    dfsRoute(start, route);
+    double total = 0.0;
+    int n = adjMatrix.size();
+    for (int i = 0; i < n - 1 && i < route.size(); ++i) {
+        total += route[i].miles;
+    }
+    return total;
 }
